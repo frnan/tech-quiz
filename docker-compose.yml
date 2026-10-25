@@ -1,0 +1,33 @@
+# `docker compose up --build`, then open http://localhost:8080
+services:
+  app:
+    # Built locally from the Dockerfile. To use the image CI publishes instead, set
+    # TECH_QUIZ_IMAGE=ghcr.io/<owner>/tech-quiz:latest and run `docker compose up --no-build`.
+    image: ${TECH_QUIZ_IMAGE:-tech-quiz:local}
+    build: .
+    ports:
+      - "${TECH_QUIZ_PORT:-8080}:8080"
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/techquiz
+      QUIZ_QUESTIONS_PATH: /app/questions
+    volumes:
+      # The YAML files are the source of truth (ADR 0002): edit them, then `docker compose restart app`.
+      - ./questions:/app/questions:ro
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:8.0
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  mongo-data:

@@ -1,0 +1,9 @@
+.git
+**/node_modules
+**/dist
+**/coverage
+**/.angular
+**/target
+**/.DS_Store
+*.log
+.env
