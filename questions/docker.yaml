@@ -1,0 +1,176 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: docker
+  name: Docker
+  description: Images and layers, Dockerfiles, multi-stage builds, Compose, volumes, networking and security.
+questions:
+  - id: docker-001
+    prompt: Why is this Dockerfile ordering good for build speed?
+    code:
+      language: dockerfile
+      source: |
+        FROM eclipse-temurin:21-jdk AS build
+        WORKDIR /build
+        COPY pom.xml mvnw ./
+        COPY .mvn/ .mvn/
+        RUN ./mvnw -B dependency:go-offline
+        COPY src/ src/
+        RUN ./mvnw -B package -DskipTests
+    options:
+      - text: Dependencies are resolved in a layer that is only rebuilt when the POM changes; code changes reuse it from cache.
+        correct: true
+      - text: Copying the POM first makes the image smaller.
+      - text: It runs the tests twice.
+      - text: The order of instructions has no effect on caching.
+    explanation: >-
+      Each instruction creates a layer that's cached until its inputs change, and a changed layer
+      invalidates every layer after it. Put rarely-changing steps first.
+    references:
+      - https://docs.docker.com/build/cache/
+
+  - id: docker-002
+    prompt: What is a multi-stage build for?
+    options:
+      - text: Build with a full toolchain in one stage, then copy only the artifacts into a small runtime image.
+        correct: true
+      - text: Running several containers from one Dockerfile.
+      - text: Building images for several CPU architectures.
+      - text: Running stages in parallel on different machines.
+    explanation: >-
+      The final image doesn't contain the JDK, Maven, node_modules or the sources. It's smaller,
+      faster to pull, and has less attack surface.
+    references:
+      - https://docs.docker.com/build/building/multi-stage/
+
+  - id: docker-003
+    prompt: What's the difference between an image and a container?
+    options:
+      - text: An image is a read-only template made of layers; a container is a running (or stopped) instance with its own writable layer.
+        correct: true
+      - text: They are synonyms.
+      - text: A container is a compressed image.
+      - text: An image is a running container saved to disk.
+    explanation: >-
+      Many containers can run from one image. Writes go to the container's thin writable layer
+      and are lost with the container unless they go to a volume.
+    references:
+      - https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-an-image/
+
+  - id: docker-004
+    prompt: How should a database container keep its data across `docker compose down` and `up`?
+    code:
+      language: yaml
+      source: |
+        services:
+          mongo:
+            image: mongo:8.0
+            volumes:
+              - mongo-data:/data/db
+        volumes:
+          mongo-data:
+    options:
+      - text: With a named volume mounted on the data directory, as above.
+        correct: true
+      - text: Data in a container's filesystem is always kept.
+      - text: By committing the container to a new image.
+      - text: With an environment variable.
+    explanation: >-
+      A named volume lives outside the container's lifecycle. `docker compose down -v` is what
+      deletes volumes, so be careful with that flag.
+    references:
+      - https://docs.docker.com/engine/storage/volumes/
+
+  - id: docker-005
+    prompt: In Docker Compose, how does the `app` service reach the `mongo` service?
+    options:
+      - text: By its service name, e.g. mongodb://mongo:27017, on the network Compose creates for the project.
+        correct: true
+      - text: Through localhost:27017.
+      - text: Only through the host's IP address.
+      - text: Services can't talk to each other without host networking.
+    explanation: >-
+      Compose puts services on a shared network with DNS resolution of service names. Inside a
+      container, localhost is that container itself.
+    references:
+      - https://docs.docker.com/compose/how-tos/networking/
+
+  - id: docker-006
+    prompt: Why run the application as a non-root user in the container?
+    options:
+      - text: If the app is compromised, the attacker has fewer privileges inside the container and less chance of escaping to the host.
+        correct: true
+      - text: Root can't open network ports in containers.
+      - text: Non-root containers start faster.
+      - text: Docker refuses to run root containers.
+    explanation: >-
+      Create a user in the Dockerfile and switch to it (USER app). It's defense in depth,
+      together with minimal base images and read-only filesystems.
+    references:
+      - https://docs.docker.com/build/building/best-practices/#user
+
+  - id: docker-007
+    prompt: What does `depends_on` with `condition service_healthy` do?
+    code:
+      language: yaml
+      source: |
+        services:
+          app:
+            depends_on:
+              mongo:
+                condition: service_healthy
+          mongo:
+            healthcheck:
+              test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+    options:
+      - text: Compose waits until mongo's healthcheck passes before starting app.
+        correct: true
+      - text: It restarts mongo whenever app is unhealthy.
+      - text: It only orders the containers' shutdown.
+      - text: It makes app share mongo's network namespace.
+    explanation: >-
+      A bare depends_on only waits for the container to start, not for the database to accept
+      connections. The app should still retry or fail fast with a clear error.
+    references:
+      - https://docs.docker.com/compose/how-tos/startup-order/
+
+  - id: docker-008
+    prompt: What is the difference between CMD and ENTRYPOINT?
+    options:
+      - text: ENTRYPOINT is the executable that always runs; CMD gives default arguments (or a default command) that `docker run image args` replaces.
+        correct: true
+      - text: CMD runs at build time, ENTRYPOINT at runtime.
+      - text: They are identical.
+      - text: ENTRYPOINT can only be a shell script.
+    explanation: >-
+      The exec form (JSON array) runs the process as PID 1 without a shell, so it receives
+      SIGTERM directly and can shut down gracefully.
+    references:
+      - https://docs.docker.com/reference/dockerfile/#understand-how-cmd-and-entrypoint-interact
+
+  - id: docker-009
+    prompt: Why pin image tags (e.g. mongo:8.0 or a digest) instead of using `latest`?
+    options:
+      - text: The same tag gives the same image over time, so builds are reproducible and an upstream release can't break you silently.
+        correct: true
+      - text: latest images are not allowed in Compose.
+      - text: Pinned tags download faster.
+      - text: latest is always the oldest version.
+    explanation: >-
+      latest is just a default tag name and can point to anything. A digest (@sha256:...) is
+      fully immutable. Tools like Dependabot or Renovate bump the pins on purpose.
+    references:
+      - https://docs.docker.com/build/building/best-practices/#pin-base-image-versions
+
+  - id: docker-010
+    prompt: What does `.dockerignore` do?
+    options:
+      - text: It excludes files from the build context sent to the builder (node_modules, target, .git, secrets).
+        correct: true
+      - text: It hides containers from docker ps.
+      - text: It ignores errors during the build.
+      - text: It lists images to skip when pulling.
+    explanation: >-
+      A smaller context means faster builds and better cache hits, and no secret is accidentally
+      copied into a layer by COPY . .
+    references:
+      - https://docs.docker.com/build/concepts/context/#dockerignore-files

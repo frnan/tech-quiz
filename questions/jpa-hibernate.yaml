@@ -1,0 +1,162 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: jpa-hibernate
+  name: JPA & Hibernate
+  description: Entities, persistence context, fetching, N+1, transactions and Spring Data JPA.
+questions:
+  - id: jpa-hibernate-001
+    prompt: What is the N+1 select problem?
+    options:
+      - text: Loading N entities with one query, then triggering one extra query per entity to load a lazy association.
+        correct: true
+      - text: A query that returns one more row than expected.
+      - text: Running N+1 transactions instead of one.
+      - text: An index that covers N+1 columns.
+    explanation: >-
+      Typical fix: fetch the association in the same query with JOIN FETCH or an @EntityGraph,
+      or batch it with @BatchSize or hibernate.default_batch_fetch_size.
+    references:
+      - https://docs.jboss.org/hibernate/orm/current/userguide/html_single/Hibernate_User_Guide.html#fetching
+
+  - id: jpa-hibernate-002
+    prompt: What are the default fetch types in JPA?
+    options:
+      - text: "@ManyToOne and @OneToOne are EAGER; @OneToMany and @ManyToMany are LAZY."
+        correct: true
+      - text: Everything is LAZY.
+      - text: Everything is EAGER.
+      - text: "@OneToMany is EAGER, @ManyToOne is LAZY."
+    explanation: >-
+      The "to-one" defaults are EAGER, which often causes surprise queries. Good practice is to
+      set fetch = FetchType.LAZY on every association and fetch explicitly when needed.
+    references:
+      - https://jakarta.ee/specifications/persistence/3.2/apidocs/jakarta.persistence/jakarta/persistence/manytoone
+
+  - id: jpa-hibernate-003
+    prompt: What does this code do in a single @Transactional method, with no call to save()?
+    code:
+      language: java
+      source: |
+        @Transactional
+        public void rename(Long id, String name) {
+            Location location = repository.findById(id).orElseThrow();
+            location.setName(name);
+        }
+    options:
+      - text: The new name is written to the database at commit, thanks to dirty checking of the managed entity.
+        correct: true
+      - text: Nothing is saved because save() is missing.
+      - text: It throws because the entity is detached.
+      - text: It saves immediately on setName().
+    explanation: >-
+      Entities loaded inside a transaction are managed by the persistence context. At flush
+      (before commit), Hibernate compares them with their snapshot and issues an UPDATE for the
+      ones that changed.
+    references:
+      - https://docs.jboss.org/hibernate/orm/current/userguide/html_single/Hibernate_User_Guide.html#pc
+
+  - id: jpa-hibernate-004
+    prompt: What causes a LazyInitializationException?
+    options:
+      - text: Accessing a lazy association after the persistence context (session) that loaded the entity has been closed.
+        correct: true
+      - text: Declaring an association as LAZY on a @ManyToOne.
+      - text: Calling findById on a missing id.
+      - text: Two transactions updating the same row.
+    explanation: >-
+      Typical case: an entity is returned from a @Transactional service, and a JSON serializer
+      later touches its lazy collection. Fetch what you need inside the transaction and map it to
+      a DTO. Don't rely on Open Session In View.
+    references:
+      - https://vladmihalcea.com/the-best-way-to-handle-the-lazyinitializationexception/
+
+  - id: jpa-hibernate-005
+    prompt: What is `@Version` used for on an entity?
+    options:
+      - text: Optimistic locking. The UPDATE includes "WHERE version = ?", and a concurrent change makes it fail with an OptimisticLockException.
+        correct: true
+      - text: Storing the application version that created the row.
+      - text: Keeping a history of every change.
+      - text: Taking a pessimistic row lock.
+    explanation: >-
+      Optimistic locking detects lost updates without holding database locks. It's a good fit
+      when conflicts are rare. Pessimistic locking (SELECT ... FOR UPDATE) blocks other writers.
+    references:
+      - https://jakarta.ee/specifications/persistence/3.2/apidocs/jakarta.persistence/jakarta/persistence/version
+
+  - id: jpa-hibernate-006
+    prompt: How does Spring Data JPA implement this method?
+    code:
+      language: java
+      source: |
+        interface LocationRepository extends JpaRepository<Location, UUID> {
+            List<Location> findByOwnerIdAndRatingGreaterThanEqualOrderByCreatedAtDesc(UUID ownerId, int rating);
+        }
+    options:
+      - text: It derives a JPQL query from the method name at startup, and fails startup if a property doesn't exist.
+        correct: true
+      - text: It requires an @Query annotation, otherwise it returns an empty list.
+      - text: It loads every location and filters in memory.
+      - text: It generates SQL at compile time with an annotation processor.
+    explanation: >-
+      Query derivation parses the method name (findBy, And, GreaterThanEqual, OrderBy...Desc)
+      into a query. For complex queries, prefer @Query or Specifications over very long names.
+    references:
+      - https://docs.spring.io/spring-data/jpa/reference/repositories/query-methods-details.html
+
+  - id: jpa-hibernate-007
+    prompt: Why shouldn't `spring.jpa.hibernate.ddl-auto=update` be used in production?
+    options:
+      - text: It applies untracked, unreviewed schema changes, never drops or renames things safely, and can't do data migrations. Use Flyway or Liquibase and set it to validate (or none).
+        correct: true
+      - text: It deletes all data on each restart.
+      - text: It's not supported on PostgreSQL.
+      - text: It makes queries slower.
+    explanation: >-
+      Schema changes belong in versioned, reviewed migration scripts. `validate` checks that the
+      mappings match the migrated schema at startup. `create-drop` is what deletes the data.
+    references:
+      - https://docs.spring.io/spring-boot/how-to/data-initialization.html
+
+  - id: jpa-hibernate-008
+    prompt: What is the default propagation of `@Transactional` and what does it mean?
+    options:
+      - text: REQUIRED, which joins the current transaction if there is one and otherwise starts a new one.
+        correct: true
+      - text: REQUIRES_NEW, which always starts a new transaction.
+      - text: NESTED, which creates a savepoint.
+      - text: SUPPORTS, which never starts a transaction.
+    explanation: >-
+      With REQUIRED, an inner method's RuntimeException marks the whole outer transaction
+      rollback-only. REQUIRES_NEW suspends the outer one, e.g. for an audit log that must be kept.
+    references:
+      - https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/tx-propagation.html
+
+  - id: jpa-hibernate-009
+    prompt: By default, which exceptions make Spring roll back a @Transactional method?
+    options:
+      - text: Unchecked exceptions (RuntimeException and Error); checked exceptions commit unless rollbackFor is set.
+        correct: true
+      - text: Every exception.
+      - text: Only checked exceptions.
+      - text: None, you must call rollback() yourself.
+    explanation: >-
+      This EJB-inherited default surprises many people. A checked IOException thrown from a
+      transactional method commits what was done so far unless you declare
+      @Transactional(rollbackFor = Exception.class).
+    references:
+      - https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/rolling-back.html
+
+  - id: jpa-hibernate-010
+    prompt: Why is it a bad idea to expose JPA entities directly as REST responses?
+    options:
+      - text: It couples the API to the schema, risks lazy-loading errors and infinite recursion on bidirectional links, and can leak fields. DTOs avoid this.
+        correct: true
+      - text: Jackson can't serialize classes annotated with @Entity.
+      - text: Entities can't have getters.
+      - text: It's forbidden by the JPA specification.
+    explanation: >-
+      A DTO (often a record, mapped by hand or by MapStruct) is the API contract, independent
+      from the persistence model, and contains exactly what the client should see.
+    references:
+      - https://martinfowler.com/eaaCatalog/dataTransferObject.html

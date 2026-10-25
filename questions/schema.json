@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tech-quiz/questions/schema.json",
+  "title": "Tech Quiz question file",
+  "description": "One topic and its questions. The file must be named <topic.id>.yaml. The backend enforces the same rules (QuestionFileLoader) and stops at startup if a file breaks them.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["topic", "questions"],
+  "properties": {
+    "topic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "description"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "kebab-case, same as the file name" },
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "prompt", "options", "explanation"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9-]+-[0-9]{3}$", "description": "<topic.id>-NNN, unique and never reused" },
+          "prompt": { "type": "string", "minLength": 1, "description": "Markdown-style `inline code` is rendered" },
+          "code": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["language", "source"],
+            "properties": {
+              "language": {
+                "enum": ["java", "typescript", "javascript", "html", "sql", "yaml", "dockerfile", "bash", "json", "xml", "plaintext"]
+              },
+              "source": { "type": "string", "minLength": 1 }
+            }
+          },
+          "options": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 5,
+            "description": "Exactly one option has correct: true. Order doesn't matter, options are shuffled.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["text"],
+              "properties": {
+                "text": { "type": "string", "minLength": 1 },
+                "correct": { "type": "boolean", "default": false }
+              }
+            }
+          },
+          "explanation": { "type": "string", "minLength": 1, "description": "Shown after answering: why the answer is right, and the trap in the wrong ones" },
+          "references": { "type": "array", "items": { "type": "string", "pattern": "^https?://\\S+$" } }
+        }
+      }
+    }
+  }
+}

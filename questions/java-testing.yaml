@@ -1,0 +1,173 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: java-testing
+  name: Testing (JUnit, Mockito, Testcontainers)
+  description: Test pyramid, JUnit 5, Mockito, Spring test slices, Testcontainers, coverage and mutation testing.
+questions:
+  - id: java-testing-001
+    prompt: What does the test pyramid recommend?
+    options:
+      - text: Many fast unit tests, fewer integration tests, and a small number of slow end-to-end tests.
+        correct: true
+      - text: Mostly end-to-end tests since they're closest to the user.
+      - text: The same number of tests at every level.
+      - text: Only integration tests.
+    explanation: >-
+      Lower levels are fast, stable and pinpoint failures. Higher levels catch integration
+      problems but are slow and flaky. Each level checks what the lower ones can't.
+    references:
+      - https://martinfowler.com/articles/practical-test-pyramid.html
+
+  - id: java-testing-002
+    prompt: What's wrong with this test?
+    code:
+      language: java
+      source: |
+        @Test
+        void sendsWelcomeEmail() {
+            UserService service = new UserService(repository, mailer);
+            service.register(new User("ada@example.com"));
+            verify(mailer).send(any());
+            verify(repository).save(any());
+            verify(mailer, never()).sendAlert(any());
+        }
+    options:
+      - text: Nothing blocks it from passing, but it checks interactions too loosely; any() would accept the wrong recipient. Assert on the captured argument instead.
+        correct: true
+      - text: verify must be called before register.
+      - text: Mocks can't be passed to constructors.
+      - text: never() isn't a Mockito feature.
+    explanation: >-
+      Over-lenient matchers give false confidence. An ArgumentCaptor, or eq() with the expected
+      email, checks the behaviour that matters (the welcome mail goes to Ada).
+    references:
+      - https://javadoc.io/doc/org.mockito/mockito-core/latest/org/mockito/ArgumentCaptor.html
+
+  - id: java-testing-003
+    prompt: Why use Testcontainers rather than an in-memory H2 database for repository tests?
+    options:
+      - text: Tests run against the same database engine as production, so SQL dialect, constraints and native queries behave the same.
+        correct: true
+      - text: H2 can't be used with Spring Boot.
+      - text: Testcontainers tests are faster than H2.
+      - text: Testcontainers mocks the database.
+    explanation: >-
+      H2's "PostgreSQL mode" differs in many details (JSONB, CHECK constraints, ON CONFLICT...).
+      Testcontainers starts a real Postgres in Docker, and @ServiceConnection wires it into
+      Spring Boot.
+    references:
+      - https://java.testcontainers.org/
+
+  - id: java-testing-004
+    prompt: What does @MockitoBean (formerly @MockBean) do in a Spring test?
+    options:
+      - text: It replaces a bean in the Spring test context with a Mockito mock.
+        correct: true
+      - text: It creates a mock without any Spring context.
+      - text: It records real calls to replay them later.
+      - text: It disables a bean.
+    explanation: >-
+      Use it with test slices such as @WebMvcTest. In a plain unit test, @Mock with
+      MockitoExtension is lighter. Each distinct set of @MockitoBean declarations creates a new
+      cached context, which slows the suite down.
+    references:
+      - https://docs.spring.io/spring-framework/reference/testing/annotations/integration-spring/annotation-mockitobean.html
+
+  - id: java-testing-005
+    prompt: What does mutation testing (e.g. PIT) measure that line coverage doesn't?
+    options:
+      - text: Whether tests actually detect bugs. It changes the code (flips a condition, removes a call) and checks that a test fails.
+        correct: true
+      - text: How many lines are executed.
+      - text: How fast the tests are.
+      - text: Whether the code compiles with every JDK.
+    explanation: >-
+      A test with no assertion executes lines without checking anything, so coverage counts it.
+      A surviving mutant points to a gap in the assertions.
+    references:
+      - https://pitest.org/
+
+  - id: java-testing-006
+    prompt: What does this JUnit 5 test do?
+    code:
+      language: java
+      source: |
+        @ParameterizedTest
+        @CsvSource({"0, false", "1, true", "5, true", "6, false"})
+        void validatesRating(int rating, boolean valid) {
+            assertThat(Rating.isValid(rating)).isEqualTo(valid);
+        }
+    options:
+      - text: It runs once per CSV row, four test cases, covering the boundaries of the range 1 to 5.
+        correct: true
+      - text: It runs once with all values.
+      - text: It fails because of the space after the commas.
+      - text: It requires a CSV file on disk.
+    explanation: >-
+      Parameterized tests make boundary-value analysis cheap. Here they cover just below, on and
+      just above each edge.
+    references:
+      - https://junit.org/junit5/docs/current/user-guide/#writing-tests-parameterized-tests
+
+  - id: java-testing-007
+    prompt: What's the difference between a stub and a mock?
+    options:
+      - text: A stub returns canned answers to drive the test; a mock is also used to verify that expected interactions happened.
+        correct: true
+      - text: They are the same thing.
+      - text: A stub is generated by Mockito, a mock is written by hand.
+      - text: Mocks can only be used for interfaces.
+    explanation: >-
+      when(...).thenReturn(...) is stubbing, and verify(...) is mocking. Prefer asserting on the
+      outputs and the state, and verify only interactions that are the behaviour itself (e.g. "an
+      email is sent").
+    references:
+      - https://martinfowler.com/articles/mocksArentStubs.html
+
+  - id: java-testing-008
+    prompt: A test passes alone but fails when the whole suite runs. What is the most likely cause?
+    options:
+      - text: Shared state leaking between tests, e.g. data left in a database, a static field or a cached Spring context.
+        correct: true
+      - text: The JVM runs out of memory.
+      - text: JUnit runs tests in alphabetical order.
+      - text: The test is too short.
+    explanation: >-
+      Tests must be independent. Clean up in @BeforeEach, use unique data per test, or make tests
+      transactional so they roll back.
+    references:
+      - https://junit.org/junit5/docs/current/user-guide/#writing-tests-test-execution-order
+
+  - id: java-testing-009
+    prompt: What does AssertJ's `assertThatThrownBy` give you over `try { ...; fail(); } catch`?
+    code:
+      language: java
+      source: |
+        assertThatThrownBy(() -> service.rate(locationId, 9))
+            .isInstanceOf(InvalidRatingException.class)
+            .hasMessageContaining("between 1 and 5");
+    options:
+      - text: A readable, fluent check of the exception type and message in one statement, failing clearly if nothing is thrown.
+        correct: true
+      - text: It catches exceptions thrown by other threads.
+      - text: It makes the test retry until it passes.
+      - text: It disables the exception's stack trace.
+    explanation: >-
+      JUnit's assertThrows is the built-in equivalent. Both avoid the classic try/fail/catch
+      pattern, whose mistakes (a forgotten fail()) lead to tests that always pass.
+    references:
+      - https://assertj.github.io/doc/#assertj-core-exception-assertions
+
+  - id: java-testing-010
+    prompt: Why start a Testcontainers container once per test run (singleton pattern) rather than per test class?
+    options:
+      - text: Starting a container takes seconds, so sharing one keeps the suite fast; tests still clean their data.
+        correct: true
+      - text: Testcontainers can only start one container per JVM.
+      - text: Per-class containers don't support @ServiceConnection.
+      - text: It's required for parallel tests.
+    explanation: >-
+      A static container started in a base class lives for the whole run, and Testcontainers'
+      Ryuk reaper removes it at the end. It also lets Spring reuse its cached context.
+    references:
+      - https://java.testcontainers.org/test_framework_integration/manual_lifecycle_control/#singleton-containers

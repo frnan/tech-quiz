@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: observability
+  name: Observability
+  description: Structured logs, metrics, tracing, Micrometer, Prometheus, Grafana, alerting and SLOs.
+questions:
+  - id: observability-001
+    prompt: What are the three classic pillars of observability?
+    options:
+      - text: Logs, metrics and traces.
+        correct: true
+      - text: CPU, memory and disk.
+      - text: Unit, integration and end-to-end tests.
+      - text: Dev, staging and production.
+    explanation: >-
+      Metrics tell you that something is wrong (cheap, aggregated), traces tell you where
+      (per-request path across services), and logs tell you why (detailed events). Correlate them
+      with a trace id.
+    references:
+      - https://opentelemetry.io/docs/concepts/signals/
+
+  - id: observability-002
+    prompt: Why log in structured JSON rather than plain text?
+    code:
+      language: json
+      source: |
+        {"@timestamp":"2026-10-25T10:15:00Z","level":"WARN","logger":"c.h.LocationService",
+         "message":"Geosearch timeout","traceId":"4bf92f3577b34da6","durationMs":5003}
+    options:
+      - text: Log tools (Loki, ELK) can filter and aggregate by field (level, traceId, durationMs) without fragile regexes.
+        correct: true
+      - text: JSON logs are smaller than text logs.
+      - text: Plain text can't contain timestamps.
+      - text: JSON logs are encrypted.
+    explanation: >-
+      In Spring Boot, logstash-logback-encoder or Boot's built-in structured logging produce
+      JSON, and MDC values (traceId, userId) become fields.
+    references:
+      - https://docs.spring.io/spring-boot/reference/features/logging.html#features.logging.structured
+
+  - id: observability-003
+    prompt: Why is putting the user id or the full URL as a Prometheus metric label dangerous?
+    options:
+      - text: Each distinct label value creates a new time series; unbounded values (high cardinality) blow up memory and queries.
+        correct: true
+      - text: Prometheus doesn't support string labels.
+      - text: Labels are public.
+      - text: It slows down the application's HTTP responses.
+    explanation: >-
+      Use bounded labels such as the route template (/locations/{id}), the method and the status.
+      Per-user detail belongs in logs and traces.
+    references:
+      - https://prometheus.io/docs/practices/naming/#labels
+
+  - id: observability-004
+    prompt: Which metric type fits HTTP request latency so you can compute percentiles across instances?
+    options:
+      - text: A histogram (buckets), aggregated with histogram_quantile in PromQL.
+        correct: true
+      - text: A counter.
+      - text: A gauge of the last request's duration.
+      - text: An average computed in the app.
+    explanation: >-
+      Averages hide the tail, and percentiles computed inside each instance can't be combined.
+      Micrometer Timers can publish histogram buckets (publishPercentileHistogram).
+    references:
+      - https://prometheus.io/docs/practices/histograms/
+
+  - id: observability-005
+    prompt: What does distributed tracing propagate between services?
+    options:
+      - text: A trace id and a parent span id in request headers (e.g. W3C traceparent), so each service's spans join the same trace.
+        correct: true
+      - text: The full log file.
+      - text: The user's password.
+      - text: The database connection.
+    explanation: >-
+      Micrometer Tracing (with Brave or OpenTelemetry) instruments RestClient, WebClient and
+      servlet calls automatically. A backend such as Zipkin or Tempo stores and shows the spans.
+    references:
+      - https://www.w3.org/TR/trace-context/
+
+  - id: observability-006
+    prompt: What is an SLO?
+    options:
+      - text: A target for a service level indicator over a time window, e.g. 99.5% of requests succeed in under 300 ms over 30 days.
+        correct: true
+      - text: A legal contract with penalties.
+      - text: A dashboard.
+      - text: The maximum number of servers.
+    explanation: >-
+      An SLI is the measurement, an SLO is the internal target, and an SLA is the contract
+      (looser than the SLO). The error budget (100% minus the SLO) tells you how much risk you can take.
+    references:
+      - https://sre.google/sre-book/service-level-objectives/
+
+  - id: observability-007
+    prompt: What makes a good alert?
+    options:
+      - text: It fires on user-visible symptoms (error rate, latency, SLO burn), is actionable, and has a runbook link.
+        correct: true
+      - text: It fires on every warning log.
+      - text: It fires when CPU exceeds 50% for one second.
+      - text: It sends an email to the whole company.
+    explanation: >-
+      Noisy alerts get ignored (alert fatigue). Page on symptoms, investigate causes (CPU, GC)
+      with dashboards, and add a `for:` duration to avoid flapping.
+    references:
+      - https://sre.google/sre-book/monitoring-distributed-systems/
+
+  - id: observability-008
+    prompt: What does this Micrometer code record?
+    code:
+      language: java
+      source: |
+        Counter.builder("geosearch.requests")
+            .tag("outcome", "timeout")
+            .register(registry)
+            .increment();
+    options:
+      - text: It increments a counter, exported to Prometheus as geosearch_requests_total{outcome="timeout"}.
+        correct: true
+      - text: The duration of the request.
+      - text: A log line.
+      - text: A trace span.
+    explanation: >-
+      Counters only go up, and you query their rate with rate(...[5m]). Micrometer turns dots
+      into underscores and adds _total for Prometheus.
+    references:
+      - https://docs.micrometer.io/micrometer/reference/concepts/counters.html
+
+  - id: observability-009
+    prompt: What is MDC (Mapped Diagnostic Context) used for in logging?
+    options:
+      - text: It attaches per-request values (traceId, userId) to every log line written on that thread, without passing them around.
+        correct: true
+      - text: It compresses old log files.
+      - text: It sends logs to a remote server.
+      - text: It defines log levels per package.
+    explanation: >-
+      MDC is thread-local, so it must be propagated to other threads (async executors, reactive
+      code). Micrometer's context propagation does that for the tracing ids.
+    references:
+      - https://logback.qos.ch/manual/mdc.html
+
+  - id: observability-010
+    prompt: Which log level fits "a request was rejected because the rating is out of range"?
+    options:
+      - text: INFO or DEBUG, since it's an expected client error, not a problem with the system.
+        correct: true
+      - text: ERROR, since an exception was thrown.
+      - text: FATAL
+      - text: It must never be logged.
+    explanation: >-
+      Keep ERROR for things someone must look at (a bug, a dependency down). Logging every 4xx as
+      ERROR hides the real problems and makes log-based alerts useless.
+    references:
+      - https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html

@@ -1,0 +1,174 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: git-cicd
+  name: Git & CI/CD
+  description: Branching strategies, rebase vs merge, conventional commits, GitHub Actions, quality gates and deployments.
+questions:
+  - id: git-cicd-001
+    prompt: What is trunk-based development?
+    options:
+      - text: Everyone integrates small changes into main frequently, via short-lived branches or directly, keeping main releasable.
+        correct: true
+      - text: Each feature lives on its own long-lived branch until the release.
+      - text: There is a develop branch and a main branch.
+      - text: Only the tech lead can commit.
+    explanation: >-
+      Short-lived branches mean small merges and fewer conflicts, and they enable continuous
+      integration. Unfinished work is hidden behind feature flags. Git Flow uses long-lived
+      develop/release branches.
+    references:
+      - https://trunkbaseddevelopment.com/
+
+  - id: git-cicd-002
+    prompt: What's the difference between `git merge` and `git rebase` for updating a feature branch?
+    options:
+      - text: Merge adds a merge commit and keeps history as it happened; rebase replays your commits on top of the target and rewrites their hashes for a linear history.
+        correct: true
+      - text: Rebase deletes the other branch's commits.
+      - text: Merge rewrites the history of main.
+      - text: They produce identical histories.
+    explanation: >-
+      Never rebase commits that others have already based work on. After rebasing a pushed
+      branch, use git push --force-with-lease, which refuses to overwrite commits you haven't seen.
+    references:
+      - https://git-scm.com/book/en/v2/Git-Branching-Rebasing
+
+  - id: git-cicd-003
+    prompt: What does this commit message follow?
+    code:
+      language: plaintext
+      source: |
+        feat(locations): add rating filter
+
+        BREAKING CHANGE: GET /locations now requires a page parameter
+    options:
+      - text: The Conventional Commits spec. Tools like release-please derive the next semantic version (here a major bump) and the changelog from it.
+        correct: true
+      - text: Git's mandatory commit format.
+      - text: The Angular CLI's commit hook.
+      - text: The SemVer specification itself.
+    explanation: >-
+      fix means a patch, feat means a minor version, and BREAKING CHANGE (or `!`) means a major
+      version. commitlint can enforce the format in a hook or in CI.
+    references:
+      - https://www.conventionalcommits.org/en/v1.0.0/
+
+  - id: git-cicd-004
+    prompt: In GitHub Actions, what does `needs` do?
+    code:
+      language: yaml
+      source: |
+        jobs:
+          test:
+            runs-on: ubuntu-latest
+            steps: [...]
+          deploy:
+            needs: test
+            if: github.ref == 'refs/heads/main'
+            runs-on: ubuntu-latest
+            steps: [...]
+    options:
+      - text: deploy waits for test to succeed and is skipped if it fails; the if limits it to main.
+        correct: true
+      - text: deploy and test run in parallel.
+      - text: deploy runs only if test fails.
+      - text: needs copies the files from test into deploy.
+    explanation: >-
+      Jobs run in parallel by default. needs builds a dependency graph. Files aren't shared
+      between jobs, which run on fresh runners, so use artifacts or a registry for that.
+    references:
+      - https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idneeds
+
+  - id: git-cicd-005
+    prompt: Where should a deployment secret (e.g. an SSH key) live for a GitHub Actions workflow?
+    options:
+      - text: In encrypted repository or environment secrets, referenced as secrets.NAME and never echoed.
+        correct: true
+      - text: In a .env file committed to the repo.
+      - text: In the workflow YAML.
+      - text: In the README for the team.
+    explanation: >-
+      GitHub masks secrets in logs and doesn't pass them to workflows triggered from forks.
+      Environments can also require a reviewer's approval before a job can use them.
+    references:
+      - https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions
+
+  - id: git-cicd-006
+    prompt: What is a quality gate in CI?
+    options:
+      - text: A check that fails the pipeline when a threshold is not met, e.g. coverage below 80%, lint warnings, a vulnerable dependency.
+        correct: true
+      - text: A manual approval by QA after each release.
+      - text: A firewall in front of the CI server.
+      - text: A branch that only contains tested code.
+    explanation: >-
+      Gates turn conventions into enforced rules: a JaCoCo or Vitest coverage threshold,
+      ESLint with --max-warnings 0, an OWASP dependency check, openapi-diff... Branch protection
+      makes them required before merging.
+    references:
+      - https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches
+
+  - id: git-cicd-007
+    prompt: What does blue-green deployment achieve?
+    options:
+      - text: Zero-downtime releases. The new version starts next to the old one and traffic switches once it's healthy, with instant rollback by switching back.
+        correct: true
+      - text: Running two different apps on the same port.
+      - text: Deploying only on weekdays.
+      - text: Testing in production with real users first.
+    explanation: >-
+      Health checks (readiness) decide when to switch. The database must be compatible with both
+      versions during the switch (expand/contract migrations). Canary releases shift traffic
+      gradually instead.
+    references:
+      - https://martinfowler.com/bliki/BlueGreenDeployment.html
+
+  - id: git-cicd-008
+    prompt: What does `git cherry-pick <sha>` do?
+    options:
+      - text: It applies the changes of that one commit on top of the current branch as a new commit.
+        correct: true
+      - text: It deletes the commit.
+      - text: It moves the branch pointer to that commit.
+      - text: It shows who wrote each line.
+    explanation: >-
+      It's useful to back-port a fix to a release branch. The new commit has a different hash.
+      git blame shows authorship, and git reset moves the branch pointer.
+    references:
+      - https://git-scm.com/docs/git-cherry-pick
+
+  - id: git-cicd-009
+    prompt: Why cache dependencies (e.g. ~/.m2 or the npm cache) in CI, keyed on the lockfile?
+    code:
+      language: yaml
+      source: |
+        - uses: actions/setup-node@v4
+          with:
+            node-version: 24
+            cache: npm
+        - run: npm ci
+    options:
+      - text: Builds are faster because unchanged dependencies aren't downloaded again; a lockfile change invalidates the cache.
+        correct: true
+      - text: It makes builds reproducible without a lockfile.
+      - text: It shares node_modules between all repositories.
+      - text: npm ci requires a cache.
+    explanation: >-
+      npm ci installs exactly what package-lock.json says (and fails if it's out of sync with
+      package.json), which is what CI should do. The cache only speeds up the download.
+    references:
+      - https://docs.npmjs.com/cli/commands/npm-ci
+
+  - id: git-cicd-010
+    prompt: What does semantic versioning 2.3.1 → 3.0.0 tell consumers?
+    options:
+      - text: There are breaking changes to the public API, so upgrading may require changes on their side.
+        correct: true
+      - text: Only bug fixes.
+      - text: New backwards-compatible features.
+      - text: Nothing, version numbers are arbitrary.
+    explanation: >-
+      MAJOR.MINOR.PATCH: incompatible changes, backwards-compatible features, backwards-compatible
+      fixes. 0.x versions can break at any minor release.
+    references:
+      - https://semver.org/

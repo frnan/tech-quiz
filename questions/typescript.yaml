@@ -1,0 +1,189 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: typescript
+  name: TypeScript
+  description: Types and inference, unions and narrowing, generics, utility types, strict mode.
+questions:
+  - id: typescript-001
+    prompt: What's the difference between `unknown` and `any`?
+    options:
+      - text: Anything can be assigned to both, but an `unknown` value must be narrowed before use, while `any` disables type checking.
+        correct: true
+      - text: They are identical.
+      - text: "`unknown` can only hold undefined."
+      - text: "`any` is safer than `unknown`."
+    explanation: >-
+      Use unknown for values of untrusted shape (JSON.parse, catch clauses) and narrow them with
+      typeof, instanceof or a type guard. any spreads silently through the code.
+    references:
+      - https://www.typescriptlang.org/docs/handbook/2/functions.html#unknown
+
+  - id: typescript-002
+    prompt: What is the type of `result` here?
+    code:
+      language: typescript
+      source: |
+        type Shape =
+          | { kind: 'circle'; radius: number }
+          | { kind: 'square'; side: number };
+
+        function area(s: Shape) {
+          if (s.kind === 'circle') {
+            const result = s;
+            return Math.PI * result.radius ** 2;
+          }
+          return s.side ** 2;
+        }
+    options:
+      - text: "{ kind: 'circle'; radius: number }"
+        correct: true
+      - text: Shape
+      - text: any
+      - text: "{ kind: string; radius?: number; side?: number }"
+    explanation: >-
+      This is a discriminated union. Checking the literal `kind` field narrows the type in each
+      branch, so `s.side` is valid after the if.
+    references:
+      - https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions
+
+  - id: typescript-003
+    prompt: What does `Partial<Location>` produce?
+    options:
+      - text: The same type with every property made optional.
+        correct: true
+      - text: A type with only the first property.
+      - text: A type with every property made readonly.
+      - text: A type that allows extra properties.
+    explanation: >-
+      Utility types transform existing types: Partial, Required, Readonly, Pick<T, K>,
+      Omit<T, K>, Record<K, V>... For example, Partial fits a PATCH payload.
+    references:
+      - https://www.typescriptlang.org/docs/handbook/utility-types.html
+
+  - id: typescript-004
+    prompt: What does this print?
+    code:
+      language: typescript
+      source: |
+        const a = 0 || 'default';
+        const b = 0 ?? 'default';
+        console.log(a, b);
+    options:
+      - text: default 0
+        correct: true
+      - text: 0 default
+      - text: default default
+      - text: 0 0
+    explanation: >-
+      || falls back on any falsy value (0, '', false, NaN, null, undefined). ?? only falls back
+      on null or undefined, which is usually what you want for numbers and empty strings.
+    references:
+      - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Nullish_coalescing
+
+  - id: typescript-005
+    prompt: 'What does `"strict": true` in tsconfig enable, among other checks?'
+    options:
+      - text: strictNullChecks and noImplicitAny, so null and undefined must be handled and untyped parameters are errors.
+        correct: true
+      - text: Code minification.
+      - text: Runtime type checking.
+      - text: ES modules only.
+    explanation: >-
+      TypeScript's types disappear at compile time. strict mode makes the compiler catch far more
+      mistakes but adds no runtime checks, so validate external data yourself.
+    references:
+      - https://www.typescriptlang.org/tsconfig/#strict
+
+  - id: typescript-006
+    prompt: What's the main difference between `interface` and `type` aliases?
+    options:
+      - text: Interfaces can be reopened (declaration merging) and extended; type aliases can also express unions, tuples and mapped types.
+        correct: true
+      - text: Interfaces exist at runtime, types don't.
+      - text: Types can't describe objects.
+      - text: Interfaces can't have optional properties.
+    explanation: >-
+      Both describe object shapes, and neither exists at runtime. Pick one convention for object
+      types, and use type for unions and other compositions.
+    references:
+      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#differences-between-type-aliases-and-interfaces
+
+  - id: typescript-007
+    prompt: What does this generic function guarantee?
+    code:
+      language: typescript
+      source: |
+        function first<T>(items: readonly T[]): T | undefined {
+          return items[0];
+        }
+        const n = first([1, 2, 3]);
+    options:
+      - text: The return type follows the element type, so n is number | undefined.
+        correct: true
+      - text: n is any.
+      - text: n is number[].
+      - text: It doesn't compile because T isn't given explicitly.
+    explanation: >-
+      T is inferred from the argument. The `| undefined` is honest about empty arrays, and with
+      noUncheckedIndexedAccess the compiler adds it to index access by itself.
+    references:
+      - https://www.typescriptlang.org/docs/handbook/2/generics.html
+
+  - id: typescript-008
+    prompt: What does `as const` do here?
+    code:
+      language: typescript
+      source: |
+        const ROLES = ['user', 'admin'] as const;
+        type Role = (typeof ROLES)[number];
+    options:
+      - text: "It infers a readonly tuple of literal types, so Role is 'user' | 'admin'."
+        correct: true
+      - text: It freezes the array at runtime.
+      - text: Role is string.
+      - text: It makes the array a constant at the module level only.
+    explanation: >-
+      Without `as const`, the array is string[] and Role is string. The assertion keeps the
+      literal types, and you get one source of truth for runtime values and types. Object.freeze
+      is what freezes at runtime.
+    references:
+      - https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-4.html#const-assertions
+
+  - id: typescript-009
+    prompt: What's a user-defined type guard?
+    code:
+      language: typescript
+      source: |
+        function isProblem(body: unknown): body is { status: number; title: string } {
+          return typeof body === 'object' && body !== null && 'status' in body && 'title' in body;
+        }
+    options:
+      - text: A function returning `x is T`; when it returns true, TypeScript narrows x to T in the caller.
+        correct: true
+      - text: A decorator that validates types at runtime automatically.
+      - text: A function that throws on wrong types.
+      - text: A compiler flag.
+    explanation: >-
+      The compiler trusts the predicate, so its runtime check must really match T. Libraries
+      such as Zod derive the guard and the type from the same schema.
+    references:
+      - https://www.typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates
+
+  - id: typescript-010
+    prompt: What does `keyof` give you?
+    code:
+      language: typescript
+      source: |
+        interface Location { id: string; name: string; rating: number }
+        type Key = keyof Location;
+    options:
+      - text: "'id' | 'name' | 'rating'"
+        correct: true
+      - text: string
+      - text: "[ 'id', 'name', 'rating' ]"
+      - text: "string | number"
+    explanation: >-
+      keyof produces the union of property names. Combined with indexed access (T[K]), it powers
+      type-safe helpers like `pluck<T, K extends keyof T>(obj: T, key: K): T[K]`.
+    references:
+      - https://www.typescriptlang.org/docs/handbook/2/keyof-types.html

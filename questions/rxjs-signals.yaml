@@ -1,0 +1,184 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: rxjs-signals
+  name: RxJS & Signals
+  description: Observables, operators, subscriptions, Angular signals, computed, effects and interop.
+questions:
+  - id: rxjs-signals-001
+    prompt: Which operator should a search-as-you-type box use to cancel the previous HTTP request when the user types again?
+    code:
+      language: typescript
+      source: |
+        query$.pipe(
+          debounceTime(300),
+          distinctUntilChanged(),
+          ???((q) => this.api.search(q)),
+        );
+    options:
+      - text: switchMap
+        correct: true
+      - text: mergeMap
+      - text: concatMap
+      - text: exhaustMap
+    explanation: >-
+      switchMap unsubscribes from the previous inner observable, which cancels the HTTP call.
+      mergeMap runs them all in parallel (responses can arrive out of order). concatMap queues
+      them. exhaustMap ignores new values while one is running, which suits a submit button.
+    references:
+      - https://rxjs.dev/api/operators/switchMap
+
+  - id: rxjs-signals-002
+    prompt: What does `computed()` do?
+    code:
+      language: typescript
+      source: |
+        readonly locations = signal<Location[]>([]);
+        readonly average = computed(() => {
+          const list = this.locations();
+          return list.length ? list.reduce((s, l) => s + l.rating, 0) / list.length : 0;
+        });
+    options:
+      - text: It derives a read-only signal that is recomputed lazily, only when a signal it read has changed.
+        correct: true
+      - text: It recomputes on every change detection cycle.
+      - text: It creates a writable signal.
+      - text: It runs side effects like HTTP calls.
+    explanation: >-
+      Dependencies are tracked automatically from the signals read during the last computation.
+      The result is memoized. Side effects belong in effect(), not in computed().
+    references:
+      - https://angular.dev/guide/signals#computed-signals
+
+  - id: rxjs-signals-003
+    prompt: What is the difference between a cold and a hot observable?
+    options:
+      - text: A cold observable starts a new producer per subscriber (e.g. each subscribe to HttpClient.get sends a request); a hot one shares an existing producer.
+        correct: true
+      - text: Cold observables are synchronous, hot ones are asynchronous.
+      - text: Hot observables can't be unsubscribed.
+      - text: Cold observables emit only once.
+    explanation: >-
+      Subscribing twice to an HttpClient observable makes two requests. shareReplay or a
+      Subject shares one execution between subscribers.
+    references:
+      - https://rxjs.dev/guide/glossary-and-semantics#cold
+
+  - id: rxjs-signals-004
+    prompt: Why can a subscription in a component leak memory?
+    options:
+      - text: A long-lived source (interval, store, router events) keeps calling the subscriber after the component is destroyed, unless you unsubscribe (takeUntilDestroyed, async pipe, toSignal).
+        correct: true
+      - text: Every subscription allocates a thread.
+      - text: Observables are never garbage-collected.
+      - text: HttpClient requests never complete.
+    explanation: >-
+      HttpClient observables complete after one response, but infinite streams don't. Prefer the
+      async pipe or toSignal(), which unsubscribe for you.
+    references:
+      - https://angular.dev/ecosystem/rxjs-interop/take-until-destroyed
+
+  - id: rxjs-signals-005
+    prompt: How do you update a signal holding an array without mutating it?
+    code:
+      language: typescript
+      source: |
+        readonly items = signal<string[]>([]);
+        add(item: string) {
+          // ???
+        }
+    options:
+      - text: this.items.update((list) => [...list, item]);
+        correct: true
+      - text: this.items().push(item);
+      - text: this.items = [...this.items(), item];
+      - text: this.items.set(this.items().concat(item).sort());
+    explanation: >-
+      Signals compare values with Object.is. Pushing into the same array doesn't change the
+      reference, so dependents aren't notified. update() derives the new value from the current one.
+    references:
+      - https://angular.dev/guide/signals#writable-signals
+
+  - id: rxjs-signals-006
+    prompt: What does `toSignal(this.route.paramMap)` do?
+    options:
+      - text: It subscribes to the observable and exposes its latest value as a signal, unsubscribing automatically when the injection context is destroyed.
+        correct: true
+      - text: It converts the signal into an observable.
+      - text: It copies the current value once and never updates.
+      - text: It turns the observable into a Promise.
+    explanation: >-
+      toSignal and toObservable bridge RxJS and signals. toSignal must be called in an injection
+      context, and its initial value is undefined unless the source emits synchronously or you
+      pass initialValue.
+    references:
+      - https://angular.dev/ecosystem/rxjs-interop
+
+  - id: rxjs-signals-007
+    prompt: When should you use `effect()`?
+    options:
+      - text: For side effects that sync signals to non-signal APIs (localStorage, logging, a Leaflet map), not to derive state.
+        correct: true
+      - text: To compute a value from other signals.
+      - text: To replace every RxJS operator.
+      - text: To fetch data in every component.
+    explanation: >-
+      Deriving state in an effect (setting signal B whenever A changes) creates extra
+      change-detection cycles and glitches. Use computed() or linkedSignal() for that.
+    references:
+      - https://angular.dev/guide/signals#effects
+
+  - id: rxjs-signals-008
+    prompt: What does this print?
+    code:
+      language: typescript
+      source: |
+        of(1, 2, 3)
+          .pipe(
+            map((n) => n * 10),
+            filter((n) => n > 10),
+          )
+          .subscribe((n) => console.log(n));
+    options:
+      - text: 20 then 30
+        correct: true
+      - text: 10, 20, 30
+      - text: 2 then 3
+      - text: Nothing, because of() is cold.
+    explanation: >-
+      Each value goes through map then filter in order: 10 is dropped, while 20 and 30 pass.
+      Cold means each subscription runs it, and here there is one subscription.
+    references:
+      - https://rxjs.dev/guide/operators
+
+  - id: rxjs-signals-009
+    prompt: What is `httpResource()` (Angular 19.2+) for?
+    code:
+      language: typescript
+      source: |
+        readonly id = input.required<string>();
+        readonly location = httpResource<Location>(() => `/api/v1/locations/${this.id()}`);
+    options:
+      - text: It fetches data reactively; when a signal in the URL function changes, it re-requests, and it exposes value(), isLoading() and error() as signals.
+        correct: true
+      - text: It caches HTTP responses in localStorage.
+      - text: It only works with WebSockets.
+      - text: It replaces HttpClient interceptors.
+    explanation: >-
+      Resources bring async data into the signal graph, and a previous in-flight request is
+      cancelled when the input changes. Interceptors still apply because it uses HttpClient.
+    references:
+      - https://angular.dev/guide/http/http-resource
+
+  - id: rxjs-signals-010
+    prompt: What's the difference between a Subject and a BehaviorSubject?
+    options:
+      - text: A BehaviorSubject has an initial value and replays the current value to each new subscriber; a Subject only emits future values.
+        correct: true
+      - text: A Subject can have only one subscriber.
+      - text: BehaviorSubject is cold.
+      - text: Subject completes after the first value.
+    explanation: >-
+      BehaviorSubject was the classic state container in Angular services. Signals now cover most
+      of that use case with a simpler API.
+    references:
+      - https://rxjs.dev/guide/subject#behaviorsubject

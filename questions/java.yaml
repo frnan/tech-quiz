@@ -1,0 +1,186 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: java
+  name: Java
+  description: Core language, collections, records, generics, concurrency and the JVM (Java 21).
+questions:
+  - id: java-001
+    prompt: What does this code print?
+    code:
+      language: java
+      source: |
+        String a = "hello";
+        String b = new String("hello");
+        System.out.println((a == b) + " " + a.equals(b));
+    options:
+      - text: "false true"
+        correct: true
+      - text: "true true"
+      - text: "false false"
+      - text: "true false"
+    explanation: >-
+      `==` compares references. `new String(...)` always creates a new object, distinct from the
+      interned literal, so `a == b` is false. `equals` compares the characters, so it's true.
+    references:
+      - https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html#equals(java.lang.Object)
+
+  - id: java-002
+    prompt: What is the contract between `equals()` and `hashCode()`?
+    options:
+      - text: Objects that are equal must have the same hash code; objects with the same hash code may be different.
+        correct: true
+      - text: Objects with the same hash code must be equal.
+      - text: Objects that are different must have different hash codes.
+      - text: There is no link between them; HashMap only uses equals().
+    explanation: >-
+      Equal objects must return equal hash codes, otherwise HashMap/HashSet put them in different
+      buckets and can't find them. Collisions (same hash, different objects) are allowed and
+      handled with equals().
+    references:
+      - https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#hashCode()
+
+  - id: java-003
+    prompt: Which statement about Java records is true?
+    code:
+      language: java
+      source: |
+        public record Point(int x, int y) {}
+    options:
+      - text: The compiler generates a canonical constructor, accessors x() and y(), equals, hashCode and toString.
+        correct: true
+      - text: Records can extend another class to share fields.
+      - text: Record fields are mutable unless declared final.
+      - text: The accessors are named getX() and getY().
+    explanation: >-
+      A record is a transparent carrier of immutable data: its fields are private final, the
+      accessors use the component names, and it implicitly extends java.lang.Record, so it can't
+      extend another class (it can implement interfaces).
+    references:
+      - https://openjdk.org/jeps/395
+
+  - id: java-004
+    prompt: What happens when you run this code?
+    code:
+      language: java
+      source: |
+        List<String> names = List.of("Ada", "Linus");
+        names.add("Grace");
+    options:
+      - text: It throws UnsupportedOperationException at runtime.
+        correct: true
+      - text: The list now contains three names.
+      - text: It does not compile because List.of returns an immutable type.
+      - text: It throws IndexOutOfBoundsException.
+    explanation: >-
+      `List.of` returns an unmodifiable list. Its static type is still `List`, so `add` compiles,
+      but it throws UnsupportedOperationException at runtime.
+    references:
+      - https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html#unmodifiable
+
+  - id: java-005
+    prompt: What are virtual threads (Java 21) mainly designed for?
+    options:
+      - text: Running many concurrent blocking I/O tasks cheaply, because a blocked virtual thread releases its carrier OS thread.
+        correct: true
+      - text: Making CPU-bound computations faster by using more cores.
+      - text: Replacing the need for synchronization between threads.
+      - text: Running Java code on the GPU.
+    explanation: >-
+      Virtual threads are lightweight threads scheduled by the JVM onto a small pool of carrier
+      threads. They shine for thread-per-request I/O workloads. They don't speed up CPU-bound work
+      and they don't remove the need for thread safety.
+    references:
+      - https://openjdk.org/jeps/444
+
+  - id: java-006
+    prompt: Which is true about checked and unchecked exceptions?
+    options:
+      - text: Checked exceptions must be declared or caught; RuntimeException and its subclasses don't have to be.
+        correct: true
+      - text: Unchecked exceptions can't be caught.
+      - text: Error is a checked exception.
+      - text: IOException extends RuntimeException.
+    explanation: >-
+      The compiler enforces handling of checked exceptions (Exception subclasses that are not
+      RuntimeException). RuntimeException and Error are unchecked. IOException is checked.
+    references:
+      - https://docs.oracle.com/javase/tutorial/essential/exceptions/runtime.html
+
+  - id: java-007
+    prompt: What does this stream pipeline print?
+    code:
+      language: java
+      source: |
+        var result = Stream.of("a", "bb", "cc", "ddd")
+            .collect(Collectors.groupingBy(String::length, Collectors.counting()));
+        System.out.println(result);
+    options:
+      - text: "{1=1, 2=2, 3=1}"
+        correct: true
+      - text: "{a=1, bb=2, cc=2, ddd=3}"
+      - text: "[1, 2, 2, 3]"
+      - text: "{1=[a], 2=[bb, cc], 3=[ddd]}"
+    explanation: >-
+      groupingBy(String::length) keys the map by length, and the downstream collector counting()
+      counts the elements of each group. Without a downstream collector you'd get the lists.
+    references:
+      - https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/stream/Collectors.html#groupingBy(java.util.function.Function,java.util.stream.Collector)
+
+  - id: java-008
+    prompt: What does the `volatile` keyword guarantee for a field?
+    options:
+      - text: Visibility, meaning a write by one thread is seen by later reads in other threads. It doesn't make compound actions like count++ atomic.
+        correct: true
+      - text: Atomicity of every operation on the field, including count++.
+      - text: The field is never cached by the garbage collector.
+      - text: Only one thread at a time can access the field.
+    explanation: >-
+      volatile establishes a happens-before relationship between a write and later reads, so
+      threads see the latest value. count++ is still read-modify-write. Use AtomicInteger or a
+      lock for that.
+    references:
+      - https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html#jls-17.4.5
+
+  - id: java-009
+    prompt: Why is `Optional` not recommended as a field or method parameter type?
+    options:
+      - text: It was designed as a return type to signal "maybe no result"; as a field or parameter it adds overhead and still allows null.
+        correct: true
+      - text: Optional is not Serializable, so it can't be used anywhere in Spring.
+      - text: Optional fields are always null at runtime.
+      - text: The compiler forbids Optional parameters.
+    explanation: >-
+      Optional's intended use is a method return type for a value that may be absent. As a
+      parameter it complicates call sites, and the Optional reference itself can still be null.
+    references:
+      - https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Optional.html
+
+  - id: java-010
+    prompt: What does this code print (Java 21)?
+    code:
+      language: java
+      source: |
+        sealed interface Shape permits Circle, Square {}
+        record Circle(double r) implements Shape {}
+        record Square(double side) implements Shape {}
+
+        static String describe(Shape s) {
+            return switch (s) {
+                case Circle c when c.r() > 10 -> "big circle";
+                case Circle c -> "circle";
+                case Square sq -> "square";
+            };
+        }
+        // describe(new Circle(3))
+    options:
+      - text: circle
+        correct: true
+      - text: big circle
+      - text: It does not compile because there is no default branch.
+      - text: It throws MatchException.
+    explanation: >-
+      Pattern matching for switch checks the cases in order, and the guard `when c.r() > 10` is
+      false for r = 3. Because Shape is sealed and every permitted subtype is covered, the switch
+      is exhaustive with no default branch.
+    references:
+      - https://openjdk.org/jeps/441

@@ -1,0 +1,157 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: redis-caching
+  name: Redis & Caching
+  description: Redis data types, TTLs, Spring Cache abstraction, invalidation and failure modes.
+questions:
+  - id: redis-caching-001
+    prompt: What is the cache-aside pattern?
+    options:
+      - text: The app reads the cache first; on a miss it loads from the database and stores the result in the cache.
+        correct: true
+      - text: The database pushes every change to the cache.
+      - text: The cache sits in front of the database and writes to it itself.
+      - text: Data is only ever stored in the cache.
+    explanation: >-
+      Spring's @Cacheable implements cache-aside: the method runs only on a miss. On writes you
+      evict (@CacheEvict) or update (@CachePut) the entry.
+    references:
+      - https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside
+
+  - id: redis-caching-002
+    prompt: What does this method do on the second call with the same query?
+    code:
+      language: java
+      source: |
+        @Cacheable(cacheNames = "geosearch", key = "#query")
+        public List<Place> search(String query) {
+            return nominatimClient.search(query);
+        }
+    options:
+      - text: It returns the cached list without calling Nominatim (if called through the Spring proxy and the entry hasn't expired).
+        correct: true
+      - text: It calls Nominatim again and updates the cache.
+      - text: It throws because List isn't cacheable.
+      - text: It always calls Nominatim; @Cacheable only logs.
+    explanation: >-
+      @Cacheable is proxy-based like @Transactional. It needs @EnableCaching, and a call through
+      `this` bypasses it. The TTL is configured on the cache manager (e.g. RedisCacheConfiguration.entryTtl).
+    references:
+      - https://docs.spring.io/spring-framework/reference/integration/cache/annotations.html
+
+  - id: redis-caching-003
+    prompt: Which Redis data structure fits a leaderboard ordered by score?
+    options:
+      - text: A sorted set (ZADD / ZRANGE ... REV)
+        correct: true
+      - text: A list
+      - text: A plain string
+      - text: A HyperLogLog
+    explanation: >-
+      Sorted sets keep members ordered by score, with O(log N) updates. HyperLogLog only gives
+      approximate unique counts.
+    references:
+      - https://redis.io/docs/latest/develop/data-types/sorted-sets/
+
+  - id: redis-caching-004
+    prompt: What is a "fail-open" cache?
+    options:
+      - text: When Redis is down, the app logs it and goes straight to the source of truth instead of failing the request.
+        correct: true
+      - text: The cache lets anyone read any key.
+      - text: The cache never expires entries.
+      - text: The app refuses requests until Redis is back.
+    explanation: >-
+      A cache is an optimization, so its outage shouldn't be an outage of the app. With Spring
+      you can plug in a CacheErrorHandler that logs instead of throwing. Fail-closed suits
+      security data, e.g. a token denylist.
+    references:
+      - https://docs.spring.io/spring-framework/reference/integration/cache/annotations.html#cache-annotation-enable
+
+  - id: redis-caching-005
+    prompt: Why set a TTL on cache entries even when you evict on writes?
+    options:
+      - text: It bounds staleness and memory if an eviction is missed (bug, another writer, crash between DB write and eviction).
+        correct: true
+      - text: Redis refuses keys without a TTL.
+      - text: TTLs make reads faster.
+      - text: It's needed for keys to be replicated.
+    explanation: >-
+      Cache invalidation is hard. A TTL is the safety net that makes every entry eventually
+      correct, and it keeps memory use bounded.
+    references:
+      - https://redis.io/docs/latest/commands/expire/
+
+  - id: redis-caching-006
+    prompt: What does `SET lock:job42 abc NX PX 30000` do?
+    code:
+      language: bash
+      source: |
+        SET lock:job42 abc NX PX 30000
+    options:
+      - text: Sets the key only if it doesn't exist, with a 30-second expiry. It's a simple lock that frees itself if the holder crashes.
+        correct: true
+      - text: Sets the key and replaces any existing value for 30 seconds.
+      - text: Deletes the key after 30000 commands.
+      - text: Sets the key 30000 times.
+    explanation: >-
+      NX means "only if absent", and the call returns OK or nil atomically. PX is the expiry in
+      milliseconds. To release safely, delete only if the value is still yours (a Lua script).
+    references:
+      - https://redis.io/docs/latest/commands/set/
+
+  - id: redis-caching-007
+    prompt: What is a cache stampede (thundering herd)?
+    options:
+      - text: A popular entry expires and many concurrent requests miss at once, all hitting the database to rebuild it.
+        correct: true
+      - text: The cache evicts entries too slowly.
+      - text: Too many keys share the same prefix.
+      - text: Redis replicas fall behind the primary.
+    explanation: >-
+      Mitigations include locking or single-flight loading (@Cacheable(sync = true) for one
+      instance), early refresh, and adding jitter to TTLs.
+    references:
+      - https://en.wikipedia.org/wiki/Cache_stampede
+
+  - id: redis-caching-008
+    prompt: Why can a Redis restart lose the most recent writes?
+    options:
+      - text: Redis keeps data in memory; RDB snapshots are periodic, and AOF with appendfsync everysec can lose up to about one second.
+        correct: true
+      - text: Redis never persists data to disk.
+      - text: Redis writes synchronously to disk on every command, so it can't lose data.
+      - text: Data is only kept on replicas.
+    explanation: >-
+      Choose persistence according to the data. A pure cache can lose everything. Refresh tokens
+      or sessions deserve AOF so users aren't all logged out by a restart.
+    references:
+      - https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/
+
+  - id: redis-caching-009
+    prompt: Which key is a good cache key for "locations of user X filtered by rating 4"?
+    options:
+      - text: "A key containing every input that changes the result, e.g. locations:{userId}:rating=4"
+        correct: true
+      - text: "locations, the same key for every user"
+      - text: "The current timestamp"
+      - text: "A random UUID per request"
+    explanation: >-
+      A key that leaves out an input (here the user) returns one user's data to another. That's
+      a correctness bug and a security bug.
+    references:
+      - https://docs.spring.io/spring-framework/reference/integration/cache/annotations.html#cache-annotations-cacheable-key
+
+  - id: redis-caching-010
+    prompt: Why is Redis fast despite running commands on a single thread?
+    options:
+      - text: Data lives in memory, commands are simple data-structure operations, and an event loop multiplexes many connections without context switches.
+        correct: true
+      - text: It uses one thread per client.
+      - text: It caches everything on the client.
+      - text: It compiles commands to machine code.
+    explanation: >-
+      Because commands run one at a time, each command is atomic. A slow command (KEYS *, a huge
+      SMEMBERS) blocks everyone, so prefer SCAN.
+    references:
+      - https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency/

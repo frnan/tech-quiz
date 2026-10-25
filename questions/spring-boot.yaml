@@ -1,0 +1,171 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: spring-boot
+  name: Spring Boot
+  description: Auto-configuration, starters, dependency injection, configuration properties, profiles and Actuator.
+questions:
+  - id: spring-boot-001
+    prompt: Which three annotations does `@SpringBootApplication` combine?
+    options:
+      - text: "@SpringBootConfiguration (a @Configuration), @EnableAutoConfiguration and @ComponentScan"
+        correct: true
+      - text: "@Configuration, @EnableWebMvc and @EnableTransactionManagement"
+      - text: "@Component, @Service and @Repository"
+      - text: "@EnableAutoConfiguration, @EnableCaching and @EnableScheduling"
+    explanation: >-
+      It marks the class as a configuration source, turns on auto-configuration, and scans for
+      components from the class's package downwards. That's why the main class usually sits in
+      the root package.
+    references:
+      - https://docs.spring.io/spring-boot/reference/using/using-the-springbootapplication-annotation.html
+
+  - id: spring-boot-002
+    prompt: How does Spring Boot auto-configuration decide whether to create a bean?
+    options:
+      - text: With conditions such as @ConditionalOnClass, @ConditionalOnMissingBean and @ConditionalOnProperty, evaluated at startup.
+        correct: true
+      - text: It creates every bean of every starter and lets you delete the unused ones.
+      - text: It reads a bean list from application.yml.
+      - text: It inspects the code at compile time with an annotation processor.
+    explanation: >-
+      Auto-configuration classes are listed in META-INF/spring/...AutoConfiguration.imports and
+      guarded by @Conditional annotations. @ConditionalOnMissingBean is what lets your own bean
+      replace the default one.
+    references:
+      - https://docs.spring.io/spring-boot/reference/features/developing-auto-configuration.html
+
+  - id: spring-boot-003
+    prompt: Why is constructor injection preferred over field injection (`@Autowired` on a field)?
+    options:
+      - text: Dependencies can be final, are explicit, and the class can be instantiated in a unit test without a Spring context or reflection.
+        correct: true
+      - text: Field injection doesn't work in Spring Boot 3+.
+      - text: Constructor injection is faster at runtime.
+      - text: Constructor injection makes beans prototype-scoped.
+    explanation: >-
+      With constructor injection the object is fully built and immutable after construction,
+      required dependencies are obvious, and tests just call `new`. A class with a single
+      constructor doesn't even need @Autowired.
+    references:
+      - https://docs.spring.io/spring-framework/reference/core/beans/dependencies/factory-collaborators.html
+
+  - id: spring-boot-004
+    prompt: A property is set in `application.yml`, in `application-prod.yml` and as the environment variable `SERVER_PORT`. The app runs with the `prod` profile. Which value wins?
+    options:
+      - text: The environment variable.
+        correct: true
+      - text: application-prod.yml
+      - text: application.yml
+      - text: The first one Spring finds on the classpath.
+    explanation: >-
+      OS environment variables rank above every config file. Among the files, profile-specific
+      ones override application.yml. Java system properties (-D...), SPRING_APPLICATION_JSON and
+      command-line arguments rank even higher.
+    references:
+      - https://docs.spring.io/spring-boot/reference/features/external-config.html
+
+  - id: spring-boot-005
+    prompt: What is the main advantage of `@ConfigurationProperties` over many `@Value` annotations?
+    code:
+      language: java
+      source: |
+        @ConfigurationProperties("app.mail")
+        public record MailProperties(String host, int port, Duration timeout) {}
+    options:
+      - text: It binds a whole group of properties into a typed, validatable object, with relaxed binding and IDE metadata.
+        correct: true
+      - text: It reads properties at compile time.
+      - text: It's the only way to read environment variables.
+      - text: It makes properties reloadable at runtime without a restart.
+    explanation: >-
+      Type-safe configuration groups related settings, converts types (e.g. Duration "5s"),
+      supports @Validated, and accepts app.mail.host, APP_MAIL_HOST and so on (relaxed binding).
+      It does not hot-reload.
+    references:
+      - https://docs.spring.io/spring-boot/reference/features/external-config.html#features.external-config.typesafe-configuration-properties
+
+  - id: spring-boot-006
+    prompt: What is the default scope of a Spring bean?
+    options:
+      - text: Singleton, meaning one instance per application context.
+        correct: true
+      - text: Prototype, meaning a new instance per injection.
+      - text: Request, meaning one instance per HTTP request.
+      - text: Session.
+    explanation: >-
+      Beans are singletons by default, so they must be stateless or thread-safe. A web app
+      serves many requests concurrently through the same instances.
+    references:
+      - https://docs.spring.io/spring-framework/reference/core/beans/factory-scopes.html
+
+  - id: spring-boot-007
+    prompt: Why does `@Transactional` have no effect here when `register()` is called from a controller?
+    code:
+      language: java
+      source: |
+        @Service
+        public class UserService {
+            public void register(User user) {
+                save(user);
+            }
+
+            @Transactional
+            public void save(User user) { /* ... */ }
+        }
+    options:
+      - text: "save() is called on `this`, not through the Spring proxy, so the transactional advice is bypassed."
+        correct: true
+      - text: "@Transactional only works on private methods."
+      - text: "@Transactional must be put on the controller."
+      - text: The method returns void.
+    explanation: >-
+      Spring applies @Transactional, @Cacheable, @Async and similar annotations through a proxy
+      around the bean. A self-invocation never goes through the proxy. Annotate the public entry
+      point or move the method to another bean.
+    references:
+      - https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/annotations.html
+
+  - id: spring-boot-008
+    prompt: What are Actuator's liveness and readiness probes for?
+    options:
+      - text: Liveness says whether the app should be restarted; readiness says whether it can receive traffic right now.
+        correct: true
+      - text: They are two names for the same /health endpoint.
+      - text: Liveness checks the database, readiness checks the CPU.
+      - text: They expose the application's metrics to Prometheus.
+    explanation: >-
+      An orchestrator restarts a container whose liveness fails and stops routing traffic to one
+      whose readiness fails. A dependency that's down (e.g. the DB) belongs in readiness, not
+      liveness, because a restart wouldn't fix it.
+    references:
+      - https://docs.spring.io/spring-boot/reference/features/spring-application.html#features.spring-application.application-availability
+
+  - id: spring-boot-009
+    prompt: In a `@WebMvcTest(UserController.class)` test, what is loaded?
+    options:
+      - text: Only the web layer (the controller, @ControllerAdvice, converters, filters); services must be provided as mocks.
+        correct: true
+      - text: The full application context including the database.
+      - text: Nothing, it's a plain unit test.
+      - text: Every controller of the application and every service.
+    explanation: >-
+      Test slices load only the auto-configuration of one layer, so they're fast. The
+      controller's dependencies are replaced with @MockitoBean (formerly @MockBean). Use
+      @SpringBootTest for the full context.
+    references:
+      - https://docs.spring.io/spring-boot/reference/testing/spring-boot-applications.html#testing.spring-boot-applications.spring-mvc-tests
+
+  - id: spring-boot-010
+    prompt: What does a Spring Boot "starter" such as `spring-boot-starter-data-mongodb` provide?
+    options:
+      - text: A curated set of dependencies with compatible versions, which triggers the matching auto-configuration.
+        correct: true
+      - text: A code generator that creates repositories.
+      - text: A Docker image of the database.
+      - text: A runtime plugin downloaded at startup.
+    explanation: >-
+      Starters are dependency descriptors. Their versions come from the spring-boot-dependencies
+      BOM, and putting the libraries on the classpath is what makes @ConditionalOnClass
+      auto-configuration kick in.
+    references:
+      - https://docs.spring.io/spring-boot/reference/using/build-systems.html#using.build-systems.starters

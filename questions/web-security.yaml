@@ -1,0 +1,164 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: web-security
+  name: Web Security
+  description: OWASP Top 10, XSS, CSRF, CORS, cookies, token storage, headers and dependency scanning.
+questions:
+  - id: web-security-001
+    prompt: What does CORS protect against?
+    options:
+      - text: It's a browser mechanism that relaxes the same-origin policy; the server says which other origins may read its responses.
+        correct: true
+      - text: It stops attackers from calling the API with curl.
+      - text: It encrypts requests between domains.
+      - text: It replaces authentication.
+    explanation: >-
+      CORS is enforced by browsers only, and a script or a server ignores it. It protects users'
+      browsers from cross-origin reads. Never reflect any Origin while also allowing credentials.
+    references:
+      - https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+
+  - id: web-security-002
+    prompt: Why keep the access token in memory and the refresh token in an HttpOnly cookie, rather than both in localStorage?
+    options:
+      - text: Any script running on the page, including injected XSS, can read localStorage; JavaScript can't read HttpOnly cookies.
+        correct: true
+      - text: localStorage is cleared on every page load.
+      - text: Cookies are faster.
+      - text: localStorage can't store strings longer than 100 characters.
+    explanation: >-
+      An XSS can still make requests while it runs, but it can't steal a long-lived token for
+      later. The cookie should be Secure, HttpOnly, SameSite=Strict or Lax, and scoped to the
+      refresh path.
+    references:
+      - https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#local-storage
+
+  - id: web-security-003
+    prompt: Is this Angular template vulnerable to XSS if `note` comes from a user?
+    code:
+      language: html
+      source: |
+        <p>{{ note }}</p>
+    options:
+      - text: No, interpolation escapes HTML, so it's shown as text.
+        correct: true
+      - text: Yes, interpolation renders raw HTML.
+      - text: Only in production builds.
+      - text: Only if note contains a script tag.
+    explanation: >-
+      Angular escapes interpolation and sanitizes [innerHTML]. The danger starts when you bypass
+      it with bypassSecurityTrustHtml or touch the DOM directly (element.innerHTML).
+    references:
+      - https://angular.dev/best-practices/security
+
+  - id: web-security-004
+    prompt: What does the SameSite=Strict attribute on a cookie do?
+    options:
+      - text: The browser doesn't send the cookie on requests initiated from other sites, which blocks most CSRF.
+        correct: true
+      - text: The cookie is only sent over HTTPS.
+      - text: JavaScript can't read the cookie.
+      - text: The cookie expires when the tab closes.
+    explanation: >-
+      The Secure attribute means HTTPS only, and HttpOnly means no JavaScript access. Lax (the
+      default in modern browsers) still sends the cookie on top-level GET navigations.
+    references:
+      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#samesitesamesite-value
+
+  - id: web-security-005
+    prompt: What is an IDOR (Insecure Direct Object Reference)?
+    code:
+      language: bash
+      source: |
+        # logged in as user 7
+        curl -H "Authorization: Bearer $TOKEN" https://api.example.com/api/v1/locations/1043
+        # returns user 12's location
+    options:
+      - text: The API trusts an id from the request without checking that the resource belongs to the caller (broken access control).
+        correct: true
+      - text: A SQL injection in the id parameter.
+      - text: A token that has expired.
+      - text: An open redirect.
+    explanation: >-
+      Broken access control is #1 in the OWASP Top 10 (2021). Scope every query to the
+      authenticated owner (WHERE owner_id = :me) and test it with two users.
+    references:
+      - https://owasp.org/Top10/A01_2021-Broken_Access_Control/
+
+  - id: web-security-006
+    prompt: What does a Content-Security-Policy header mitigate?
+    code:
+      language: plaintext
+      source: |
+        Content-Security-Policy: default-src 'self'; img-src 'self' https://tile.openstreetmap.org; object-src 'none'
+    options:
+      - text: The impact of XSS, because the browser refuses scripts and resources from sources the policy doesn't allow.
+        correct: true
+      - text: SQL injection.
+      - text: Brute-force login attempts.
+      - text: Cookie theft over HTTP.
+    explanation: >-
+      CSP is defense in depth. Even if an attacker injects markup, inline scripts and foreign
+      origins are blocked. Test a new policy with Content-Security-Policy-Report-Only first.
+    references:
+      - https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
+
+  - id: web-security-007
+    prompt: Why scan dependencies (OWASP Dependency-Check, npm audit, Dependabot) in CI?
+    options:
+      - text: Most of an app's code is third-party; known CVEs in libraries are a common entry point (OWASP "Vulnerable and Outdated Components").
+        correct: true
+      - text: To check code style.
+      - text: To make the build faster.
+      - text: Licences forbid unscanned dependencies.
+    explanation: >-
+      Fail the build above a CVSS threshold, review false positives in a suppression file (with
+      a reason and an expiry), and keep dependencies up to date.
+    references:
+      - https://owasp.org/Top10/A06_2021-Vulnerable_and_Outdated_Components/
+
+  - id: web-security-008
+    prompt: A login endpoint answers "unknown email" or "wrong password" depending on the case. What's the issue?
+    options:
+      - text: User enumeration. Attackers learn which emails have accounts. Return the same generic message (and similar timing).
+        correct: true
+      - text: The messages are not translated.
+      - text: It should return 500.
+      - text: There is no issue, it's helpful UX.
+    explanation: >-
+      Also rate-limit login and reset endpoints. Sign-up and "forgot password" flows can leak
+      the same information, so phrase them neutrally ("if an account exists, we sent an email").
+    references:
+      - https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#authentication-and-error-messages
+
+  - id: web-security-009
+    prompt: What does the HSTS header do?
+    code:
+      language: plaintext
+      source: |
+        Strict-Transport-Security: max-age=31536000; includeSubDomains
+    options:
+      - text: It tells browsers to use HTTPS only for this domain for a year, preventing SSL-stripping downgrades.
+        correct: true
+      - text: It encrypts the response body twice.
+      - text: It hides the server version.
+      - text: It enables HTTP/2.
+    explanation: >-
+      After the first HTTPS visit, the browser rewrites http:// to https:// on its own. The
+      preload list protects even the first visit.
+    references:
+      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security
+
+  - id: web-security-010
+    prompt: An endpoint fetches a URL given by the user to generate a preview. Which vulnerability must you guard against?
+    options:
+      - text: SSRF. The server can be made to call internal addresses such as cloud metadata endpoints or the admin network.
+        correct: true
+      - text: XSS
+      - text: CSRF
+      - text: Clickjacking
+    explanation: >-
+      Allow-list the destinations, resolve the DNS name and reject private and link-local
+      addresses, disable redirects or re-check them, and set timeouts.
+    references:
+      - https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/

@@ -1,0 +1,164 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: rest-openapi
+  name: REST & OpenAPI
+  description: HTTP semantics, status codes, idempotency, versioning, error formats and API contracts.
+questions:
+  - id: rest-openapi-001
+    prompt: Which HTTP methods are idempotent?
+    options:
+      - text: GET, PUT and DELETE (and HEAD, OPTIONS); POST is not.
+        correct: true
+      - text: Only GET.
+      - text: GET and POST.
+      - text: All of them.
+    explanation: >-
+      Idempotent means sending the request N times leaves the server in the same state as
+      sending it once, so clients can safely retry it. PATCH is not guaranteed idempotent.
+    references:
+      - https://www.rfc-editor.org/rfc/rfc9110#name-idempotent-methods
+
+  - id: rest-openapi-002
+    prompt: A client creates a resource with POST. What is the most appropriate response?
+    options:
+      - text: 201 Created with a Location header pointing to the new resource.
+        correct: true
+      - text: 200 OK with an empty body.
+      - text: 204 No Content.
+      - text: 302 Found.
+    explanation: >-
+      201 tells the client something was created, and Location gives its URI. The body often
+      contains the created representation.
+    references:
+      - https://www.rfc-editor.org/rfc/rfc9110#name-201-created
+
+  - id: rest-openapi-003
+    prompt: User A requests GET /locations/42, which belongs to user B. Which response avoids leaking that it exists?
+    options:
+      - text: 404 Not Found
+        correct: true
+      - text: 403 Forbidden
+      - text: 401 Unauthorized
+      - text: 200 OK with an empty body
+    explanation: >-
+      A 403 confirms the resource exists, which lets an attacker enumerate ids. Answering 404 for
+      "doesn't exist or isn't yours" is a common choice for private resources (GitHub does it
+      for private repositories).
+    references:
+      - https://www.rfc-editor.org/rfc/rfc9110#name-404-not-found
+
+  - id: rest-openapi-004
+    prompt: What is RFC 9457 (formerly RFC 7807) "Problem Details"?
+    code:
+      language: json
+      source: |
+        {
+          "type": "https://example.com/problems/invalid-rating",
+          "title": "Invalid rating",
+          "status": 400,
+          "detail": "rating must be between 1 and 5",
+          "instance": "/api/v1/locations/42"
+        }
+    options:
+      - text: A standard JSON format (application/problem+json) for HTTP API errors.
+        correct: true
+      - text: A logging format for stack traces.
+      - text: An OpenAPI extension for documentation.
+      - text: A JWT claim set.
+    explanation: >-
+      Spring supports it with ProblemDetail and ErrorResponse. One error shape across the API
+      makes client handling simpler, and nothing internal (stack traces, SQL) leaks.
+    references:
+      - https://www.rfc-editor.org/rfc/rfc9457
+
+  - id: rest-openapi-005
+    prompt: Which change to a published API is breaking for existing clients?
+    options:
+      - text: Making an optional request field required.
+        correct: true
+      - text: Adding a new optional query parameter.
+      - text: Adding a new endpoint.
+      - text: Adding a new field to a response (for clients that ignore unknown fields).
+    explanation: >-
+      Clients that don't send the field start getting 400s. Removing or renaming a field and
+      changing a type are breaking too. Tools like openapi-diff catch these in CI.
+    references:
+      - https://github.com/OpenAPITools/openapi-diff
+
+  - id: rest-openapi-006
+    prompt: What's the difference between code-first and design-first OpenAPI?
+    options:
+      - text: Code-first generates the spec from annotated code (e.g. springdoc); design-first writes the spec, then generates or validates code against it.
+        correct: true
+      - text: Code-first means no documentation.
+      - text: Design-first only works with GraphQL.
+      - text: They produce different OpenAPI versions.
+    explanation: >-
+      Code-first can't drift from the implementation. Design-first lets frontend and backend
+      agree before coding. Either way the spec can generate typed clients (e.g. ng-openapi-gen).
+    references:
+      - https://swagger.io/blog/code-first-vs-design-first-api/
+
+  - id: rest-openapi-007
+    prompt: What does a 429 status code mean?
+    options:
+      - text: Too Many Requests, the client was rate-limited. Retry-After can say when to try again.
+        correct: true
+      - text: The request body is too large.
+      - text: The server is overloaded.
+      - text: The token has expired.
+    explanation: >-
+      Rate limiting (e.g. with Bucket4j's token buckets) protects login endpoints and expensive
+      endpoints. 503 is the server saying it's unavailable. 413 is a payload that's too large.
+    references:
+      - https://www.rfc-editor.org/rfc/rfc6585#section-4
+
+  - id: rest-openapi-008
+    prompt: Which is a common way to version a REST API?
+    options:
+      - text: A version in the URI path, e.g. /api/v1/locations.
+        correct: true
+      - text: Changing the domain name for each release.
+      - text: A version field in every JSON object.
+      - text: Versioning is never needed with REST.
+    explanation: >-
+      URI versioning is explicit and cache-friendly. Media-type or header versioning keeps URIs
+      stable but is harder to test in a browser. Whatever you pick, write the choice down.
+    references:
+      - https://learn.microsoft.com/en-us/azure/architecture/best-practices/api-design#implement-versioning
+
+  - id: rest-openapi-009
+    prompt: What does this Spring controller method return when the body is invalid?
+    code:
+      language: java
+      source: |
+        @PostMapping("/api/v1/locations")
+        @ResponseStatus(HttpStatus.CREATED)
+        public LocationDto create(@Valid @RequestBody CreateLocationRequest request) {
+            return service.create(request);
+        }
+    options:
+      - text: 400 Bad Request (MethodArgumentNotValidException); the method body is never executed.
+        correct: true
+      - text: 201 with the invalid data.
+      - text: 500 Internal Server Error.
+      - text: 422 by default.
+    explanation: >-
+      @Valid triggers Bean Validation before the method runs. Spring maps the exception to 400,
+      as a ProblemDetail when problem details are enabled or with a @ControllerAdvice.
+    references:
+      - https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-validation.html
+
+  - id: rest-openapi-010
+    prompt: What is cursor (keyset) pagination's advantage over offset pagination?
+    options:
+      - text: Stable pages when rows are inserted, and constant cost for deep pages (WHERE id > :last instead of OFFSET 100000).
+        correct: true
+      - text: It lets the client jump to any page number.
+      - text: It doesn't need an ORDER BY.
+      - text: It returns the total count for free.
+    explanation: >-
+      OFFSET still scans and discards the skipped rows, and new rows shift the pages. A cursor
+      remembers where you stopped. The trade-off is no "go to page 37".
+    references:
+      - https://use-the-index-luke.com/no-offset

@@ -1,0 +1,159 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: sql-postgresql
+  name: SQL, PostgreSQL & Flyway
+  description: Joins, indexes, transactions and isolation, constraints, and versioned migrations with Flyway.
+questions:
+  - id: sql-postgresql-001
+    prompt: What does this query return for a user without any location?
+    code:
+      language: sql
+      source: |
+        SELECT u.email, COUNT(l.id) AS locations
+        FROM users u
+        LEFT JOIN locations l ON l.owner_id = u.id
+        GROUP BY u.email;
+    options:
+      - text: The user, with locations = 0.
+        correct: true
+      - text: Nothing, the user is filtered out.
+      - text: The user, with locations = NULL.
+      - text: The user, with locations = 1.
+    explanation: >-
+      A LEFT JOIN keeps every row of the left table and fills the right side with NULLs.
+      COUNT(column) ignores NULLs, so the count is 0. COUNT(*) would count the joined row and
+      return 1.
+    references:
+      - https://www.postgresql.org/docs/current/queries-table-expressions.html#QUERIES-JOIN
+
+  - id: sql-postgresql-002
+    prompt: What is the main cost of adding an index?
+    options:
+      - text: Slower writes (each INSERT/UPDATE/DELETE maintains it) and more storage.
+        correct: true
+      - text: Slower reads on that column.
+      - text: Queries stop returning NULL values.
+      - text: The table gets locked forever.
+    explanation: >-
+      Indexes speed up reads that filter, join or sort on the indexed columns, but every write
+      pays for them. Use EXPLAIN (ANALYZE) to check that the planner actually uses them.
+    references:
+      - https://www.postgresql.org/docs/current/indexes-intro.html
+
+  - id: sql-postgresql-003
+    prompt: What is PostgreSQL's default transaction isolation level?
+    options:
+      - text: Read Committed
+        correct: true
+      - text: Read Uncommitted
+      - text: Repeatable Read
+      - text: Serializable
+    explanation: >-
+      Each statement sees data committed before that statement started, so two SELECTs in one
+      transaction can see different data. PostgreSQL treats Read Uncommitted as Read Committed
+      (no dirty reads, ever).
+    references:
+      - https://www.postgresql.org/docs/current/transaction-iso.html
+
+  - id: sql-postgresql-004
+    prompt: What does EXPLAIN ANALYZE do?
+    options:
+      - text: It runs the query and shows the chosen plan with actual row counts and timings.
+        correct: true
+      - text: It shows the estimated plan without running the query.
+      - text: It rewrites the query to be faster.
+      - text: It refreshes the table statistics.
+    explanation: >-
+      Plain EXPLAIN only estimates. EXPLAIN ANALYZE executes the query, so wrap an UPDATE or
+      DELETE in a transaction you roll back. ANALYZE (on its own) is what refreshes the statistics.
+    references:
+      - https://www.postgresql.org/docs/current/using-explain.html
+
+  - id: sql-postgresql-005
+    prompt: How does Flyway know which migrations to run?
+    options:
+      - text: It compares the versioned scripts (V1__init.sql, V2__...) with the flyway_schema_history table and applies the missing ones in order.
+        correct: true
+      - text: It diffs the JPA entities against the database.
+      - text: It runs every script on every startup.
+      - text: It uses file modification dates.
+    explanation: >-
+      Each applied migration is recorded with its checksum. Editing an applied script makes
+      validation fail, so a fix goes in a new migration.
+    references:
+      - https://documentation.red-gate.com/fd/migrations-271585107.html
+
+  - id: sql-postgresql-006
+    prompt: You must rename a column on a live app with rolling deploys. What's the safe approach?
+    options:
+      - text: Expand/contract. Add the new column, write both and backfill, switch reads, then drop the old column in a later release.
+        correct: true
+      - text: One migration with ALTER TABLE ... RENAME COLUMN, deployed with the code.
+      - text: Drop the table and recreate it.
+      - text: Use ddl-auto=update.
+    explanation: >-
+      During a rolling deploy the old and the new versions of the app run at the same time, so
+      the schema must work with both. A single rename breaks the old instances.
+    references:
+      - https://martinfowler.com/bliki/ParallelChange.html
+
+  - id: sql-postgresql-007
+    prompt: What's the difference between WHERE and HAVING?
+    options:
+      - text: WHERE filters rows before grouping; HAVING filters groups after aggregation.
+        correct: true
+      - text: HAVING is faster than WHERE.
+      - text: They are interchangeable.
+      - text: WHERE works only with indexes.
+    explanation: >-
+      For example: SELECT owner_id, AVG(rating) FROM reviews WHERE created_at > now() - interval
+      '1 year' GROUP BY owner_id HAVING AVG(rating) >= 4.
+    references:
+      - https://www.postgresql.org/docs/current/tutorial-agg.html
+
+  - id: sql-postgresql-008
+    prompt: Why use a parameterized query (PreparedStatement) instead of concatenating user input into SQL?
+    options:
+      - text: Parameters are sent separately from the SQL text, so input can't change the query's structure (no SQL injection).
+        correct: true
+      - text: It's the only way to use indexes.
+      - text: Concatenation doesn't work with strings.
+      - text: Parameterized queries are encrypted.
+    explanation: >-
+      JPA's named parameters (:name), Spring's JdbcTemplate placeholders and PreparedStatement
+      all bind values. Never build SQL or JPQL with string concatenation of input.
+    references:
+      - https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html
+
+  - id: sql-postgresql-009
+    prompt: What does this constraint guarantee?
+    code:
+      language: sql
+      source: |
+        ALTER TABLE reviews
+          ADD CONSTRAINT reviews_rating_range CHECK (rating BETWEEN 1 AND 5);
+    options:
+      - text: The database rejects any INSERT or UPDATE that would store a rating outside 1 to 5, whatever the application does.
+        correct: true
+      - text: The application's Bean Validation is generated from it.
+      - text: Existing rows outside the range are fixed automatically.
+      - text: Ratings are rounded into the range.
+    explanation: >-
+      Constraints in the database are the last line of defence when a bug, a script or another
+      service bypasses the app's validation. Adding one fails if existing rows violate it.
+    references:
+      - https://www.postgresql.org/docs/current/ddl-constraints.html
+
+  - id: sql-postgresql-010
+    prompt: When is a composite index on (owner_id, created_at) useful?
+    options:
+      - text: For queries filtering on owner_id (alone or with created_at) and sorting by created_at; not for filtering on created_at alone.
+        correct: true
+      - text: Only for queries using both columns in that order in the SELECT list.
+      - text: For any query on either column equally.
+      - text: Never, PostgreSQL only uses single-column indexes.
+    explanation: >-
+      A B-tree composite index is sorted by its first column, then the second (leftmost prefix
+      rule). WHERE owner_id = ? ORDER BY created_at DESC can use it with no extra sort.
+    references:
+      - https://www.postgresql.org/docs/current/indexes-multicolumn.html

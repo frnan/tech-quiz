@@ -1,0 +1,191 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: angular
+  name: Angular
+  description: Standalone components, change detection, zoneless, dependency injection, routing, forms and HTTP.
+questions:
+  - id: angular-001
+    prompt: What does OnPush change detection do?
+    options:
+      - text: The component is re-checked only when an input reference changes, an event fires in it, a signal it reads changes, or it's explicitly marked for check.
+        correct: true
+      - text: The component is checked on every browser event anywhere in the app.
+      - text: The component is never re-rendered after its first render.
+      - text: It pushes changes to the server.
+    explanation: >-
+      OnPush skips subtrees whose inputs didn't change, which saves work. Mutating an input
+      object in place (instead of passing a new reference) isn't detected. Recent Angular
+      versions make OnPush the default.
+    references:
+      - https://angular.dev/best-practices/skipping-subtrees
+
+  - id: angular-002
+    prompt: In a zoneless Angular app, what triggers change detection?
+    options:
+      - text: Signal updates read in templates, template event handlers, async pipe emissions and explicit markForCheck. Not arbitrary setTimeout or third-party callbacks.
+        correct: true
+      - text: Every setTimeout, Promise and DOM event, like with Zone.js.
+      - text: Nothing; you must call detectChanges() everywhere.
+      - text: A timer that runs every 16 ms.
+    explanation: >-
+      Without Zone.js, Angular no longer patches async APIs. State changed in a Leaflet callback
+      must go through a signal (or markForCheck) to show up on screen.
+    references:
+      - https://angular.dev/guide/zoneless
+
+  - id: angular-003
+    prompt: What is a standalone component?
+    options:
+      - text: A component that declares its own dependencies in `imports` instead of belonging to an NgModule.
+        correct: true
+      - text: A component that can't have child components.
+      - text: A component rendered in its own iframe.
+      - text: A component with no inputs or outputs.
+    explanation: >-
+      Standalone is the default since Angular 19. Routes can lazy-load a component directly with
+      loadComponent, and NgModules are optional.
+    references:
+      - https://angular.dev/guide/components/importing
+
+  - id: angular-004
+    prompt: What's the benefit of this route definition?
+    code:
+      language: typescript
+      source: |
+        export const routes: Routes = [
+          {
+            path: 'locations',
+            canActivate: [authGuard],
+            loadComponent: () => import('./locations/location-list').then((m) => m.LocationList),
+          },
+        ];
+    options:
+      - text: The component's code is downloaded only when the route is visited, and only for users the guard lets through.
+        correct: true
+      - text: The component is pre-rendered on the server.
+      - text: The guard runs after the component is displayed.
+      - text: It makes the route available offline.
+    explanation: >-
+      Lazy loading keeps the initial bundle small. A functional guard (a plain function using
+      inject()) decides access. That's UX only, since the API must enforce authorization anyway.
+    references:
+      - https://angular.dev/guide/routing/define-routes#lazily-loaded-components
+
+  - id: angular-005
+    prompt: What does `inject()` allow compared to constructor injection?
+    code:
+      language: typescript
+      source: |
+        export const authGuard: CanActivateFn = () => {
+          const auth = inject(AuthService);
+          return auth.isLoggedIn() ? true : inject(Router).createUrlTree(['/login']);
+        };
+    options:
+      - text: Injecting dependencies in functions such as guards, interceptors and resolvers, or in field initializers, as long as it runs in an injection context.
+        correct: true
+      - text: Injecting dependencies anywhere at any time, including in setTimeout callbacks.
+      - text: Creating a new instance on every call.
+      - text: Bypassing providers.
+    explanation: >-
+      inject() works during construction or in a function called by Angular within an injection
+      context. Calling it later throws NG0203, unless you use runInInjectionContext.
+    references:
+      - https://angular.dev/guide/di/dependency-injection-context
+
+  - id: angular-006
+    prompt: What does an HTTP interceptor typically do in an app with JWT auth?
+    options:
+      - text: It adds the Authorization header to API requests and, on a 401, refreshes the token once and retries.
+        correct: true
+      - text: It stores the token in localStorage.
+      - text: It validates the JWT signature in the browser.
+      - text: It replaces the backend's CORS configuration.
+    explanation: >-
+      Functional interceptors (HttpInterceptorFn) are registered with
+      provideHttpClient(withInterceptors([...])). Share one in-flight refresh between concurrent
+      401s instead of refreshing per request.
+    references:
+      - https://angular.dev/guide/http/interceptors
+
+  - id: angular-007
+    prompt: What are typed reactive forms?
+    code:
+      language: typescript
+      source: |
+        form = new FormGroup({
+          name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+          rating: new FormControl<number | null>(null),
+        });
+    options:
+      - text: Forms whose controls carry their value type, so form.value.name is a string and form.value.rating is number | null | undefined.
+        correct: true
+      - text: Forms that validate input on the server.
+      - text: Template-driven forms with ngModel.
+      - text: Forms that only accept typed keyboard input.
+    explanation: >-
+      Since Angular 14, reactive forms are strongly typed. nonNullable makes reset() return to
+      the initial value instead of null. form.value is partial (disabled controls are omitted),
+      form.getRawValue() isn't.
+    references:
+      - https://angular.dev/guide/forms/typed-forms
+
+  - id: angular-008
+    prompt: What does `track` do in the `@for` block?
+    code:
+      language: html
+      source: |
+        @for (location of locations(); track location.id) {
+          <app-location-card [location]="location" />
+        } @empty {
+          <p>No location yet</p>
+        }
+    options:
+      - text: It identifies items so Angular reuses the DOM for unchanged items instead of recreating the whole list.
+        correct: true
+      - text: It logs each iteration for analytics.
+      - text: It sorts the list by id.
+      - text: It's optional decoration with no effect.
+    explanation: >-
+      track is mandatory in @for. Tracking by a stable id keeps component state and makes
+      updates fast. @empty renders when the collection is empty.
+    references:
+      - https://angular.dev/guide/templates/control-flow#track-and-identity
+
+  - id: angular-009
+    prompt: Which is the right way to pass data from a parent to a child component in modern Angular?
+    code:
+      language: typescript
+      source: |
+        export class RatingStars {
+          readonly value = input.required<number>();
+          readonly changed = output<number>();
+        }
+    options:
+      - text: Signal inputs (input()/input.required()) for data in, output() for events out.
+        correct: true
+      - text: A shared global variable.
+      - text: Reading the parent through the DOM.
+      - text: Two-way binding on every property.
+    explanation: >-
+      Signal inputs are read like signals (this.value()), work with computed(), and need no
+      ngOnChanges. model() exists for real two-way bindings.
+    references:
+      - https://angular.dev/guide/components/inputs
+
+  - id: angular-010
+    prompt: What does the `providedIn root` option of a service mean?
+    code:
+      language: typescript
+      source: |
+        @Injectable({ providedIn: 'root' })
+        export class LocationService {}
+    options:
+      - text: One app-wide instance, created lazily on first injection, and tree-shaken away if nothing injects it.
+        correct: true
+      - text: A new instance for each component.
+      - text: The service is only available to the root component.
+      - text: The service runs on the server.
+    explanation: >-
+      To get one instance per component instead, list the service in that component's providers.
+    references:
+      - https://angular.dev/guide/di/creating-injectable-service

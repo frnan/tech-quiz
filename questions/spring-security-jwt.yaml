@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=./schema.json
+topic:
+  id: spring-security-jwt
+  name: Spring Security & JWT
+  description: Filter chain, authentication vs authorization, JWT, refresh tokens, password hashing and method security.
+questions:
+  - id: spring-security-jwt-001
+    prompt: What is the difference between authentication and authorization?
+    options:
+      - text: Authentication proves who you are; authorization decides what you're allowed to do.
+        correct: true
+      - text: They are synonyms.
+      - text: Authorization happens before authentication.
+      - text: Authentication is for APIs, authorization is for web pages.
+    explanation: >-
+      A 401 Unauthorized actually means "not authenticated", and a 403 Forbidden means
+      "authenticated but not allowed".
+    references:
+      - https://docs.spring.io/spring-security/reference/servlet/architecture.html
+
+  - id: spring-security-jwt-002
+    prompt: What are the three parts of a JWT?
+    options:
+      - text: Header, payload (claims) and signature, each Base64URL-encoded and separated by dots.
+        correct: true
+      - text: Username, password and expiry date, encrypted with AES.
+      - text: Public key, private key and certificate.
+      - text: Issuer, audience and session id.
+    explanation: >-
+      A signed JWT (JWS) is header.payload.signature. The payload is only encoded, not
+      encrypted: anyone can read it, so never put secrets in it. The signature only guarantees it
+      wasn't tampered with.
+    references:
+      - https://datatracker.ietf.org/doc/html/rfc7519
+
+  - id: spring-security-jwt-003
+    prompt: Why pair a short-lived access token with a long-lived refresh token?
+    options:
+      - text: A stolen access token is only useful for minutes, and the refresh token, kept in an HttpOnly cookie and rotated, can be revoked server-side.
+        correct: true
+      - text: Because JWTs can't contain an expiry date.
+      - text: To avoid having to sign the access token.
+      - text: Refresh tokens make the API stateless, access tokens don't.
+    explanation: >-
+      Stateless JWTs can't be revoked before they expire, so they're kept short. The refresh
+      token is stored server-side (e.g. Redis), rotated on each use, and deleted on logout.
+    references:
+      - https://datatracker.ietf.org/doc/html/rfc9700
+
+  - id: spring-security-jwt-004
+    prompt: How should passwords be stored?
+    options:
+      - text: Hashed with a slow, salted algorithm such as bcrypt or Argon2 (e.g. via PasswordEncoder).
+        correct: true
+      - text: Encrypted with AES so they can be decrypted for support.
+      - text: Hashed once with SHA-256.
+      - text: Base64-encoded.
+    explanation: >-
+      Fast hashes like SHA-256 can be brute-forced on GPUs. bcrypt, scrypt and Argon2 are
+      deliberately slow and salted. Spring's DelegatingPasswordEncoder prefixes the hash with
+      {bcrypt} so you can migrate algorithms later.
+    references:
+      - https://docs.spring.io/spring-security/reference/features/authentication/password-storage.html
+
+  - id: spring-security-jwt-005
+    prompt: What does this configuration do?
+    code:
+      language: java
+      source: |
+        http
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                .anyRequest().authenticated())
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+    options:
+      - text: Auth endpoints are public, admin endpoints need ROLE_ADMIN, everything else needs a logged-in user, and no HTTP session is created.
+        correct: true
+      - text: Every endpoint is public because permitAll comes first.
+      - text: Admin endpoints are public, the rest need ADMIN.
+      - text: It disables Spring Security.
+    explanation: >-
+      Rules are evaluated in order, first match wins. hasRole("ADMIN") checks the authority
+      ROLE_ADMIN. STATELESS means each request must carry its own credentials, such as a bearer JWT.
+    references:
+      - https://docs.spring.io/spring-security/reference/servlet/authorization/authorize-http-requests.html
+
+  - id: spring-security-jwt-006
+    prompt: Where does a JWT authentication filter usually sit and what does it do?
+    options:
+      - text: In the SecurityFilterChain before UsernamePasswordAuthenticationFilter; it validates the bearer token and puts an Authentication in the SecurityContext.
+        correct: true
+      - text: In the controller, as the first line of every method.
+      - text: In the database layer, checking tokens on each query.
+      - text: In the browser, to add the token to requests.
+    explanation: >-
+      Spring Security is a chain of servlet filters. A custom OncePerRequestFilter, or the
+      built-in oauth2ResourceServer().jwt(), parses the Authorization header. Once the
+      SecurityContext is populated, the request counts as authenticated for later filters and
+      @PreAuthorize.
+    references:
+      - https://docs.spring.io/spring-security/reference/servlet/architecture.html#servlet-securityfilterchain
+
+  - id: spring-security-jwt-007
+    prompt: What does `@PreAuthorize("hasRole('ADMIN')")` on a service method need to work?
+    options:
+      - text: Method security enabled with @EnableMethodSecurity, and the call going through the Spring proxy.
+        correct: true
+      - text: Nothing, it works on any class, even one created with new.
+      - text: The method must be static.
+      - text: An @Transactional annotation on the same method.
+    explanation: >-
+      Method security is proxy-based like @Transactional, so self-invocation and objects created
+      with `new` aren't protected. @EnableMethodSecurity turns @PreAuthorize on.
+    references:
+      - https://docs.spring.io/spring-security/reference/servlet/authorization/method-security.html
+
+  - id: spring-security-jwt-008
+    prompt: A JWT is signed with HS256. Which statement is true?
+    options:
+      - text: The same secret signs and verifies, so every service that verifies tokens can also forge them.
+        correct: true
+      - text: HS256 uses a public/private key pair.
+      - text: HS256 encrypts the payload.
+      - text: The secret can be short since the algorithm adds a salt.
+    explanation: >-
+      HMAC is symmetric. With RS256 or ES256, only the issuer holds the private key and the other
+      services verify with the public key. An HS256 secret must be long and random (at least 256 bits).
+    references:
+      - https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
+
+  - id: spring-security-jwt-009
+    prompt: Your API is stateless, uses a bearer token in the Authorization header and sets no cookies. Why is CSRF protection usually disabled?
+    options:
+      - text: CSRF exploits credentials the browser sends automatically (cookies); a header the attacker's page can't set isn't sent automatically.
+        correct: true
+      - text: CSRF only affects GET requests.
+      - text: JWTs are encrypted so they can't be forged.
+      - text: CORS already blocks every cross-site request.
+    explanation: >-
+      CSRF protection is needed as soon as an authentication cookie exists, including an HttpOnly
+      refresh-token cookie. That endpoint needs SameSite and/or a CSRF token.
+    references:
+      - https://docs.spring.io/spring-security/reference/features/exploits/csrf.html#csrf-when
+
+  - id: spring-security-jwt-010
+    prompt: Which claim should a server always check when validating a JWT, besides the signature?
+    options:
+      - text: "exp (expiry), and also iss/aud when the token comes from a shared identity provider."
+        correct: true
+      - text: "jti only."
+      - text: "None, a valid signature is enough."
+      - text: "The 'alg' header should be trusted to pick the verification algorithm."
+    explanation: >-
+      A validly signed but expired token must be rejected. Never let the token's own alg header
+      pick the algorithm ("alg: none" attacks). Pin the expected algorithm on the server.
+    references:
+      - https://datatracker.ietf.org/doc/html/rfc8725
