@@ -1,0 +1,12 @@
+:host {
+  display: inline;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-sm);
+  background: var(--color-code-inline-bg);
+  overflow-wrap: anywhere;
+}

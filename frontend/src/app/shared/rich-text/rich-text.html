@@ -1,0 +1,7 @@
+@for (part of parts(); track $index) {
+  @if (part.code) {
+    <code>{{ part.text }}</code>
+  } @else {
+    {{ part.text }}
+  }
+}

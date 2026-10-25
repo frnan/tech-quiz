@@ -1,0 +1,102 @@
+<section class="intro">
+  <h1>Train for your next tech interview</h1>
+  <p class="muted">
+    Single-choice questions on Java, Spring, databases, Angular, Docker, CI/CD, observability and
+    security. Each answer comes with an explanation and references.
+  </p>
+</section>
+
+@if (session.status() === 'error') {
+  <p class="alert" role="alert">{{ session.errorMessage() }}</p>
+}
+
+<div class="modes">
+  <section class="card stack" aria-labelledby="quick-title">
+    <div>
+      <h2 id="quick-title">Quick mix</h2>
+      <p class="muted">Random questions from every topic. Good for a warm-up.</p>
+    </div>
+    <div class="row" role="group" aria-labelledby="quick-title">
+      @for (size of sizes; track size) {
+        <button
+          type="button"
+          class="btn"
+          [class.btn-primary]="$first"
+          [disabled]="loading()"
+          (click)="quickMix(size)"
+        >
+          {{ size }} questions
+        </button>
+      }
+    </div>
+  </section>
+
+  <section class="card stack" aria-labelledby="custom-title">
+    <div>
+      <h2 id="custom-title">Custom quiz</h2>
+      <p class="muted">Pick the topics you want to work on, and how many questions.</p>
+    </div>
+    <div class="row">
+      <a class="btn btn-primary" routerLink="/custom">Choose topics</a>
+    </div>
+  </section>
+</div>
+
+@if (history.weakTopics().length) {
+  <section class="card stack" aria-labelledby="weak-title">
+    <h2 id="weak-title">Topics to work on</h2>
+    <ul class="weak">
+      @for (stat of history.weakTopics(); track stat.topicId) {
+        <li>
+          <span>{{ topics.nameOf(stat.topicId) }}</span>
+          <span class="muted"
+            >{{ percent(stat.correct, stat.answered) }}% of {{ stat.answered }}</span
+          >
+        </li>
+      }
+    </ul>
+    <div class="row">
+      <button
+        type="button"
+        class="btn btn-primary"
+        [disabled]="loading()"
+        (click)="practiceWeakTopics()"
+      >
+        Practise these topics
+      </button>
+    </div>
+  </section>
+}
+
+@if (recent().length) {
+  <section class="card stack" aria-labelledby="history-title">
+    <h2 id="history-title">Recent sessions</h2>
+    <table>
+      <caption class="visually-hidden">
+        Your last quizzes, most recent first
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Mode</th>
+          <th scope="col">Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (entry of recent(); track entry.finishedAt) {
+          <tr>
+            <td>{{ entry.finishedAt | date: 'medium' }}</td>
+            <td>{{ modeLabels[entry.mode] }}</td>
+            <td>
+              {{ entry.correct }} / {{ entry.total }} ({{ percent(entry.correct, entry.total) }}%)
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    <div class="row">
+      <button type="button" class="btn" (click)="history.clear()">Clear history</button>
+      <span class="muted small">Kept in this browser only.</span>
+    </div>
+  </section>
+}

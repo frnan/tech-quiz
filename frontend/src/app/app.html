@@ -1,0 +1,17 @@
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="header">
+  <a class="brand" routerLink="/">
+    <span class="brand-mark" aria-hidden="true">{{ '{' }}?{{ '}' }}</span>
+    Tech Quiz
+  </a>
+  <nav aria-label="Main">
+    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
+    <a routerLink="/custom" routerLinkActive="active">Custom quiz</a>
+  </nav>
+</header>
+<main id="main" tabindex="-1">
+  <router-outlet />
+</main>
+<footer class="footer">
+  Questions are plain YAML files: see CONTRIBUTING.md in the repository to add one.
+</footer>

@@ -1,0 +1,86 @@
+@if (session.current(); as question) {
+  <div class="meta">
+    <span>Question {{ session.index() + 1 }} of {{ session.questions().length }}</span>
+    <span class="topic">{{ topics.nameOf(question.topicId) }}</span>
+  </div>
+  <div
+    class="progress"
+    role="progressbar"
+    aria-label="Quiz progress"
+    aria-valuemin="0"
+    aria-valuemax="100"
+    [attr.aria-valuenow]="progress()"
+  >
+    <div class="progress-bar" [style.width.%]="progress()"></div>
+  </div>
+
+  <article class="card stack">
+    <h1 #heading tabindex="-1" class="prompt"><app-rich-text [text]="question.prompt" /></h1>
+
+    @if (question.code; as code) {
+      <app-code-block [code]="code" />
+    }
+
+    <ol class="options" aria-label="Answers">
+      @for (option of question.options; track option.id; let i = $index) {
+        <li>
+          <button
+            type="button"
+            class="option"
+            [class]="optionState(option)"
+            [disabled]="!!session.currentAnswer() || session.isSubmitting()"
+            (click)="choose(option)"
+          >
+            <span class="key" aria-hidden="true">{{ i + 1 }}</span>
+            <span class="text"><app-rich-text [text]="option.text" /></span>
+            @switch (optionState(option)) {
+              @case ('correct') {
+                <span class="visually-hidden">(correct answer)</span>
+              }
+              @case ('wrong') {
+                <span class="visually-hidden">(your answer, wrong)</span>
+              }
+            }
+          </button>
+        </li>
+      }
+    </ol>
+
+    @if (session.errorMessage(); as error) {
+      <p class="alert" role="alert">{{ error }}</p>
+    }
+
+    <div aria-live="polite">
+      @if (session.currentAnswer(); as answer) {
+        <section class="feedback" [class.correct]="answer.result.correct">
+          <h2>{{ answer.result.correct ? 'Correct!' : 'Not quite.' }}</h2>
+          <p><app-rich-text [text]="answer.result.explanation" /></p>
+          @if (answer.result.references.length) {
+            <ul class="refs">
+              @for (ref of answer.result.references; track ref) {
+                <li>
+                  <a [href]="ref" target="_blank" rel="noopener noreferrer">{{ ref }}</a>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+    </div>
+
+    <div class="row actions">
+      <span class="muted hint"
+        >Keys 1–{{ question.options.length }} to answer, Enter to continue</span
+      >
+      <button
+        #nextButton
+        type="button"
+        class="btn btn-primary"
+        [disabled]="!session.currentAnswer()"
+        (click)="next()"
+      >
+        {{ session.isLast() ? 'See results' : 'Next question' }}
+      </button>
+    </div>
+  </article>
+}

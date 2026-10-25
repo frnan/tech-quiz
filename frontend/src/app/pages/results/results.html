@@ -1,0 +1,73 @@
+<section class="card score" aria-labelledby="score-title">
+  <h1 id="score-title">
+    {{ session.correctCount() }} / {{ session.questions().length }}
+    <span class="percent">{{ session.scorePercent() }}%</span>
+  </h1>
+  <p>{{ verdict() }}</p>
+  <div class="row">
+    @if (session.mistakes().length) {
+      <button type="button" class="btn btn-primary" (click)="retryMistakes()">
+        Retry my {{ session.mistakes().length }} mistake{{
+          session.mistakes().length > 1 ? 's' : ''
+        }}
+      </button>
+    }
+    <a class="btn" routerLink="/">New quiz</a>
+  </div>
+  @if (session.status() === 'error') {
+    <p class="alert" role="alert">{{ session.errorMessage() }}</p>
+  }
+</section>
+
+<section class="card" aria-labelledby="topics-title">
+  <h2 id="topics-title">By topic</h2>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Topic</th>
+        <th scope="col">Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of perTopic(); track row.topicId) {
+        <tr>
+          <td>{{ topics.nameOf(row.topicId) }}</td>
+          <td>{{ row.correct }} / {{ row.answered }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</section>
+
+@if (session.mistakes().length) {
+  <section class="stack" aria-labelledby="mistakes-title">
+    <h2 id="mistakes-title">Review your mistakes</h2>
+    @for (mistake of session.mistakes(); track mistake.question.id) {
+      <article class="card stack mistake">
+        <p class="muted topic">{{ topics.nameOf(mistake.question.topicId) }}</p>
+        <h3><app-rich-text [text]="mistake.question.prompt" /></h3>
+        @if (mistake.question.code; as code) {
+          <app-code-block [code]="code" />
+        }
+        <dl>
+          <dt>Your answer</dt>
+          <dd class="wrong"><app-rich-text [text]="mistake.chosenText" /></dd>
+          <dt>Correct answer</dt>
+          <dd class="right"><app-rich-text [text]="mistake.correctText" /></dd>
+        </dl>
+        <p><app-rich-text [text]="mistake.result.explanation" /></p>
+        @if (mistake.result.references.length) {
+          <ul class="refs">
+            @for (ref of mistake.result.references; track ref) {
+              <li>
+                <a [href]="ref" target="_blank" rel="noopener noreferrer">{{ ref }}</a>
+              </li>
+            }
+          </ul>
+        }
+      </article>
+    }
+  </section>
+} @else {
+  <p class="card">No mistakes. Try a bigger quiz or another set of topics.</p>
+}

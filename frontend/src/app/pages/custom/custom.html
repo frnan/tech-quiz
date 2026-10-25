@@ -1,0 +1,69 @@
+<h1>Custom quiz</h1>
+
+@if (topics.loadFailed()) {
+  <div class="alert stack" role="alert">
+    <span>Could not load the topics. Is the backend running?</span>
+    <div><button type="button" class="btn" (click)="retryLoad()">Try again</button></div>
+  </div>
+} @else {
+  <form class="stack" (submit)="$event.preventDefault(); start()">
+    <fieldset class="card">
+      <legend>Topics</legend>
+      <div class="row toolbar">
+        <button type="button" class="btn" (click)="selectAll()">Select all</button>
+        <button type="button" class="btn" (click)="clear()">Clear</button>
+        <span class="muted" aria-live="polite">{{ selected().size }} selected</span>
+      </div>
+      <ul class="topics">
+        @for (topic of topics.topics(); track topic.id) {
+          <li>
+            <label class="topic">
+              <input
+                type="checkbox"
+                [checked]="selected().has(topic.id)"
+                (change)="toggle(topic.id)"
+              />
+              <span class="topic-text">
+                <span class="topic-name">{{ topic.name }}</span>
+                <span class="muted">{{ topic.description }}</span>
+              </span>
+              <span class="count muted">{{ topic.questionCount }}</span>
+            </label>
+          </li>
+        } @empty {
+          <li class="muted">Loading topics…</li>
+        }
+      </ul>
+    </fieldset>
+
+    <fieldset class="card">
+      <legend>Number of questions</legend>
+      <div class="row">
+        @for (option of sizes; track option) {
+          <label class="size">
+            <input
+              type="radio"
+              name="size"
+              [checked]="size() === option"
+              (change)="size.set(option)"
+            />
+            {{ option }}
+          </label>
+        }
+      </div>
+      @if (selected().size && available() < size()) {
+        <p class="muted note">
+          These topics have {{ available() }} questions: you'll get all of them.
+        </p>
+      }
+    </fieldset>
+
+    @if (session.status() === 'error') {
+      <p class="alert" role="alert">{{ session.errorMessage() }}</p>
+    }
+
+    <div class="row">
+      <button type="submit" class="btn btn-primary" [disabled]="!canStart()">Start the quiz</button>
+    </div>
+  </form>
+}
