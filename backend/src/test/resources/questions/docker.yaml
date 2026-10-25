@@ -1,0 +1,10 @@
+topic: { id: docker, name: Docker, description: Containers }
+questions:
+  - id: docker-001
+    prompt: Which instruction sets the default command?
+    options:
+      - text: CMD
+        correct: true
+      - text: RUN
+      - text: COPY
+    explanation: CMD gives the default command; RUN executes at build time.

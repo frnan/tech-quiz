@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: tech-quiz
+  mongodb:
+    uri: ${MONGODB_URI:mongodb://localhost:27017/techquiz}
+  mvc:
+    problemdetails:
+      enabled: true
+
+quiz:
+  questions:
+    # Docker sets QUIZ_QUESTIONS_PATH=/app/questions; `./mvnw spring-boot:run` from backend/ reads ../questions.
+    path: ${QUIZ_QUESTIONS_PATH:../questions}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

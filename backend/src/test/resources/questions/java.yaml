@@ -1,0 +1,23 @@
+topic: { id: java, name: Java, description: The language }
+questions:
+  - id: java-001
+    prompt: What does this print?
+    code:
+      language: java
+      source: |
+        System.out.println("a" + 1 + 2);
+    options:
+      - text: a12
+        correct: true
+      - text: a3
+      - text: It does not compile
+    explanation: String concatenation goes left to right.
+    references: [https://docs.oracle.com/javase/specs/]
+  - id: java-002
+    prompt: Which collection keeps insertion order?
+    options:
+      - text: HashSet
+      - text: LinkedHashSet
+        correct: true
+      - text: TreeSet
+    explanation: LinkedHashSet keeps a linked list of entries.
