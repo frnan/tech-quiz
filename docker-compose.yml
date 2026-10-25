@@ -2,7 +2,7 @@
 services:
   app:
     # Built locally from the Dockerfile. To use the image CI publishes instead, set
-    # TECH_QUIZ_IMAGE=ghcr.io/<owner>/tech-quiz:latest and run `docker compose up --no-build`.
+    # TECH_QUIZ_IMAGE=ghcr.io/frnan/tech-quiz:latest and run `docker compose up --no-build`.
     image: ${TECH_QUIZ_IMAGE:-tech-quiz:local}
     build: .
     ports:

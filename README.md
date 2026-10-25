@@ -14,7 +14,7 @@ and references. The first question set covers a Java/Spring Boot + Angular stack
 All you need is Docker.
 
 ```bash
-git clone <this repo> && cd tech-quiz
+git clone https://github.com/frnan/tech-quiz.git && cd tech-quiz
 docker compose up --build
 ```
 
@@ -92,7 +92,7 @@ cd frontend && npm ci && npm start                               # SPA on :4200,
 | Lint / format | `npm run lint`, `npm run format:check` | zero warnings |
 
 CI (GitHub Actions) runs all of the above on every PR, then builds the image. On `main` it
-also pushes the image to `ghcr.io/<owner>/tech-quiz`.
+also pushes the image to `ghcr.io/frnan/tech-quiz`.
 
 ## License
 
